@@ -1,0 +1,198 @@
+/* Sistema de diseño base — tomado directamente de la identidad visual de
+   aiviento.com: tipografía (Syne para títulos, Inter para texto), paleta
+   (negro como color primario, verde lima #a5e84f como acento, secciones
+   oscuras en negro puro con texto blanco) y logo (ver
+   frontend/src/config/content.js, defaults de 'general.logo'/
+   'general.logo_oscuro'/'general.favicon'). Estos son los valores por
+   defecto: si el admin no cargó nada distinto en /admin-panel/contenido,
+   el sitio arranca con esta identidad sin necesitar filas en la base. */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Por defecto Syne/Inter; useFonts() las pisa según lo elegido en
+     Generales (/admin-panel/contenido) apenas carga el sitio público. */
+  --font-heading: 'Syne', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --color-bg: #ffffff;
+  --color-bg-alt: #f5f7fa;
+  --color-text: #1a1f26;
+  --color-text-muted: #5b6470;
+  --color-primary: #000000;
+  --color-primary-dark: #262626;
+  --color-accent: #a5e84f;
+  --color-accent-dark: #8fd936;
+  --color-dark-bg: #000000;
+  --color-dark-text: #ffffff;
+  --color-border: #e3e7ed;
+  --color-success: #2e7d4f;
+  --color-danger: #c0392b;
+  --color-info: #1d6fa5;
+  --radius: 10px;
+  --shadow: 0 4px 20px rgba(15, 27, 42, 0.08);
+  --max-width: 1120px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body), system-ui, sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.55;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading), var(--font-body), sans-serif;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 0.5em;
+  color: var(--color-primary-dark);
+}
+
+p { margin: 0 0 1em; }
+
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: var(--radius);
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  text-decoration: none;
+}
+.btn:hover { text-decoration: none; }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover { background: var(--color-primary-dark); }
+.btn-accent { background: var(--color-accent); color: #000000; }
+.btn-accent:hover { background: var(--color-accent-dark); }
+.btn-outline { background: transparent; color: var(--color-primary); border: 1.5px solid var(--color-primary); }
+.btn-outline:hover { background: var(--color-primary); color: #fff; }
+.btn-danger { background: var(--color-danger); color: #fff; }
+/* Negro fijo a propósito (no --color-primary): algunos botones tienen que
+   quedar siempre en negro/blanco sin importar qué color primario haya
+   elegido el admin en Contenido del sitio — ej: "Ver curso" en la tienda. */
+.btn-black { background: #000; color: #fff; }
+.btn-black:hover { background: #222; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-sm { padding: 8px 14px; font-size: 0.85rem; }
+
+.card {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--color-bg-alt);
+  color: var(--color-text-muted);
+}
+.badge-success { background: #e5f4ec; color: var(--color-success); }
+.badge-warning { background: #fdf1e0; color: var(--color-accent-dark); }
+.badge-danger { background: #fbeae7; color: var(--color-danger); }
+/* Etiquetas de marca (ej: badge del hero de Home) — independiente de
+   badge-warning, que es semántico (turnos/entregas pendientes) y no debería
+   cambiar de significado si el admin ajusta el color de acento. */
+.badge-accent { background: color-mix(in srgb, var(--color-accent) 20%, white); color: var(--color-primary); }
+
+.field { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+.field label { font-weight: 600; font-size: 0.9rem; }
+.field input, .field textarea, .field select {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-text);
+}
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.grid {
+  display: grid;
+  gap: 24px;
+}
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+.section { padding: 72px 0; }
+.section-alt { background: var(--color-bg-alt); }
+.section-dark { background: var(--color-dark-bg); color: var(--color-dark-text); }
+.section-dark h1, .section-dark h2, .section-dark h3 { color: #fff; }
+.section-dark a { color: var(--color-accent); }
+
+.text-muted { color: var(--color-text-muted); }
+.text-center { text-align: center; }
+
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+.alert-error { background: #fbeae7; color: var(--color-danger); }
+.alert-success { background: #e5f4ec; color: var(--color-success); }
+.alert-info { background: #e6f0f7; color: var(--color-info); }
+/* Mismo espíritu que badge-warning (turnos/entregas pendientes): un aviso
+   que no es un error pero pide atención — ej. "Test Pagos" recordando que
+   hace falta cargar credenciales de PRUEBA, no de producción. */
+.alert-warning { background: #fdf1e0; color: var(--color-accent-dark); }
+
+.spinner-msg { padding: 60px 0; text-align: center; color: var(--color-text-muted); }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--color-border); font-size: 0.9rem; }
+th { color: var(--color-text-muted); font-weight: 600; }
+
+/* Layout de dos columnas para las páginas de unidad/capítulo del
+   classroom (ver CourseSidebar.jsx): temario a la izquierda, contenido a
+   la derecha. En pantallas angostas se apilan, con el temario primero. */
+.classroom-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+.classroom-layout > .classroom-main { flex: 1; min-width: 0; }
+.classroom-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+@media (max-width: 860px) {
+  .classroom-layout { flex-direction: column; }
+  .classroom-sidebar { width: 100%; position: static; max-height: none; }
+}

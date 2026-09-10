@@ -1,0 +1,34 @@
+# Dependencias (se reinstalan con npm install en cada máquina)
+node_modules/
+
+# Variables de entorno con valores reales — nunca se suben a git.
+# Los .env.example (con las mismas claves, sin valores sensibles) sí se suben.
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Base de datos SQLite local (se regenera con las migraciones/seeds)
+backend/data/*.sqlite3
+backend/data/*.sqlite3-journal
+
+# Archivos subidos por usuarios en tiempo de ejecución (no son código fuente)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Build de producción del frontend (se genera con npm run build)
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cobertura de tests
+coverage/
+
+# Archivos del sistema operativo / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

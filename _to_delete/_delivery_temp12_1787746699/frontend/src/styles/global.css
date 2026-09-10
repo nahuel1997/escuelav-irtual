@@ -1,0 +1,388 @@
+/* Sistema de diseño base — tomado directamente de la identidad visual de
+   aiviento.com: tipografía (Syne para títulos, Inter para texto), paleta
+   (negro como color primario, verde lima #a5e84f como acento, secciones
+   oscuras en negro puro con texto blanco) y logo (ver
+   frontend/src/config/content.js, defaults de 'general.logo'/
+   'general.logo_oscuro'/'general.favicon'). Estos son los valores por
+   defecto: si el admin no cargó nada distinto en /admin-panel/contenido,
+   el sitio arranca con esta identidad sin necesitar filas en la base. */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Por defecto Syne/Inter; useFonts() las pisa según lo elegido en
+     Generales (/admin-panel/contenido) apenas carga el sitio público. */
+  --font-heading: 'Syne', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --color-bg: #ffffff;
+  --color-bg-alt: #f5f7fa;
+  --color-text: #1a1f26;
+  --color-text-muted: #5b6470;
+  --color-primary: #000000;
+  --color-primary-dark: #262626;
+  --color-accent: #a5e84f;
+  --color-accent-dark: #8fd936;
+  --color-dark-bg: #000000;
+  --color-dark-text: #ffffff;
+  --color-border: #e3e7ed;
+  --color-success: #2e7d4f;
+  --color-danger: #c0392b;
+  --color-info: #1d6fa5;
+  --radius: 10px;
+  --shadow: 0 4px 20px rgba(15, 27, 42, 0.08);
+  --max-width: 1120px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body), system-ui, sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.55;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading), var(--font-body), sans-serif;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 0.5em;
+  color: var(--color-primary-dark);
+}
+
+p { margin: 0 0 1em; }
+
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+/* Variante más ancha de .container, solo para las páginas "de video"
+   (capítulo del classroom, sala de clase en vivo — ver CourseChapter.jsx
+   y LiveClassRoom.jsx): --max-width (1120px) está pensado para columnas
+   de lectura, y ahí sobraba de más al lado del video dejando un hueco en
+   blanco. Estas páginas no tienen Footer (ver Layout.jsx) — son una
+   sección aparte, pensada para ocupar la pantalla, no para leer texto. */
+.container-video {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: var(--radius);
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  text-decoration: none;
+}
+.btn:hover { text-decoration: none; }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover { background: var(--color-primary-dark); }
+.btn-accent { background: var(--color-accent); color: #000000; }
+.btn-accent:hover { background: var(--color-accent-dark); }
+.btn-outline { background: transparent; color: var(--color-primary); border: 1.5px solid var(--color-primary); }
+.btn-outline:hover { background: var(--color-primary); color: #fff; }
+.btn-danger { background: var(--color-danger); color: #fff; }
+/* Negro fijo a propósito (no --color-primary): algunos botones tienen que
+   quedar siempre en negro/blanco sin importar qué color primario haya
+   elegido el admin en Contenido del sitio — ej: "Ver curso" en la tienda. */
+.btn-black { background: #000; color: #fff; }
+.btn-black:hover { background: #222; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-sm { padding: 8px 14px; font-size: 0.85rem; }
+
+.card {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--color-bg-alt);
+  color: var(--color-text-muted);
+}
+.badge-success { background: #e5f4ec; color: var(--color-success); }
+.badge-warning { background: #fdf1e0; color: var(--color-accent-dark); }
+.badge-danger { background: #fbeae7; color: var(--color-danger); }
+/* Etiquetas de marca (ej: badge del hero de Home) — independiente de
+   badge-warning, que es semántico (turnos/entregas pendientes) y no debería
+   cambiar de significado si el admin ajusta el color de acento. */
+.badge-accent { background: color-mix(in srgb, var(--color-accent) 20%, white); color: var(--color-primary); }
+
+/* min-width: 0 — un .field vive muchas veces adentro de una fila flex de
+   dos columnas (ej: "Desde"/"Hasta" en Calendar.jsx, "Nombre"/"Email" en
+   CvBuilder.jsx) con flex:1 cada uno puesto en el propio componente. Sin
+   este min-width, un flex item no se achica más allá del ancho de su
+   contenido — acá el input de adentro — así que en pantallas angostas esa
+   fila terminaba más ancha que la pantalla en vez de que cada input se
+   redujera para entrar. */
+.field { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field label { font-weight: 600; font-size: 0.9rem; }
+.field input, .field textarea, .field select {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-text);
+}
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* input[type="file"] no hereda el look de .field input (el navegador lo
+   renderiza con su propio botón nativo, sin CSS posible sobre ese botón
+   salvo vía ::file-selector-button) — se estiliza acá, global, porque
+   además se usa suelto sin envolver en .field (ver CampoField.jsx, los
+   campos tipo "imagen" del panel de Contenido: logo, favicon, etc.). */
+input[type="file"] {
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+input[type="file"]::file-selector-button,
+input[type="file"]::-webkit-file-upload-button {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  margin-right: 12px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+input[type="file"]::file-selector-button:hover,
+input[type="file"]::-webkit-file-upload-button:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.grid {
+  display: grid;
+  gap: 24px;
+}
+/* min(280px, 100%) en vez de 280px a secas: un track de grid con un piso
+   fijo no se achica más allá de ese piso aunque el contenedor sea más
+   angosto — en un celular chico (ej. CvBuilder.jsx, "Nombre completo"/
+   "Email" adentro de un .card con padding) el contenedor quedaba por
+   debajo de 280px y la fila entera se salía de la pantalla. min() hace
+   que el piso ceda a "todo el ancho disponible" en vez de forzarlo, sin
+   cambiar nada en pantallas donde 280px ya entraba de sobra. */
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+
+.section { padding: 72px 0; }
+.section-alt { background: var(--color-bg-alt); }
+.section-dark { background: var(--color-dark-bg); color: var(--color-dark-text); }
+.section-dark h1, .section-dark h2, .section-dark h3 { color: #fff; }
+.section-dark a { color: var(--color-accent); }
+
+.text-muted { color: var(--color-text-muted); }
+.text-center { text-align: center; }
+
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+.alert-error { background: #fbeae7; color: var(--color-danger); }
+.alert-success { background: #e5f4ec; color: var(--color-success); }
+.alert-info { background: #e6f0f7; color: var(--color-info); }
+/* Mismo espíritu que badge-warning (turnos/entregas pendientes): un aviso
+   que no es un error pero pide atención — ej. "Test Pagos" recordando que
+   hace falta cargar credenciales de PRUEBA, no de producción. */
+.alert-warning { background: #fdf1e0; color: var(--color-accent-dark); }
+
+.spinner-msg { padding: 60px 0; text-align: center; color: var(--color-text-muted); }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--color-border); font-size: 0.9rem; }
+th { color: var(--color-text-muted); font-weight: 600; }
+
+/* Layout de dos columnas para las páginas de unidad/capítulo del
+   classroom (ver CourseSidebar.jsx): temario a la izquierda, contenido a
+   la derecha. En pantallas angostas se apilan, con el temario primero. */
+.classroom-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+.classroom-layout > .classroom-main { flex: 1; min-width: 0; }
+.classroom-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+@media (max-width: 860px) {
+  /* align-items: flex-start (arriba) es correcto en fila (desktop): ahí
+     solo controla el alto. Pero al pasar a columna acá abajo, ese mismo
+     "flex-start" pasa a controlar el ANCHO (eje cruzado en columna) — sin
+     stretch, cada hijo se achica al ancho de su propio contenido en vez
+     de ocupar el 100%, y el título/video terminaban más anchos que el
+     contenedor. */
+  .classroom-layout { flex-direction: column; align-items: stretch; }
+  .classroom-sidebar { width: 100%; position: static; max-height: none; }
+}
+
+/* Header público (Navbar.jsx) — en desktop es una sola fila (logo + links +
+   acciones). Abajo de 860px no entraba todo junto: se recortaba contra el
+   borde derecho de la pantalla en vez de acomodarse. El botón de
+   hamburguesa y el panel .navbar-collapse están siempre en el DOM (con
+   este mismo layout arriba de 860px, para no duplicar el JSX en dos
+   variantes) — este media query es lo único que cambia entre uno y otro. */
+/* Estado desktop (por default): .navbar-collapse ocupa el resto de la
+   fila entre el logo y el borde, con los links pegados al logo y las
+   acciones (carrito/ingresar/usuario) empujadas al extremo derecho —
+   mismo resultado visual que el "justify-content: space-between" de 3
+   columnas que tenía el header antes de agruparlas para el mobile. */
+.navbar-collapse {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  margin-left: 32px;
+}
+.navbar-links { display: flex; align-items: center; gap: 20px; }
+.navbar-actions { display: flex; align-items: center; gap: 12px; }
+
+.navbar-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.navbar-hamburger span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--color-primary-dark);
+  border-radius: 2px;
+}
+@media (max-width: 860px) {
+  .navbar-hamburger { display: flex; }
+  .navbar-collapse {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-left: 0;
+    background: #fff;
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: var(--shadow);
+    padding: 16px 24px 20px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .navbar-collapse.open { display: flex; }
+  .navbar-links { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .navbar-actions { flex-direction: column; align-items: stretch; gap: 10px; margin-top: 16px; }
+}
+
+/* Sidebar del alumno/profesor (Sidebar.jsx) ya se colapsa solo a íconos
+   abajo de 860px (ver leerPreferenciaGuardada) — lo que faltaba era el
+   header de al lado (AppTopbar.jsx): sin flex-wrap, "Cerrar sesión"
+   quedaba recortado contra el borde en vez de pasar a una segunda línea.
+   Ese fix es inline (flexWrap en el propio componente), no hace falta CSS
+   acá — se deja esta nota para que quede junto al resto de las notas de
+   responsive de esta sección. */
+
+/* Sidebar del backoffice (AdminLayout.jsx) — a diferencia del de
+   alumno/profesor, este no tenía NINGÚN colapso: 220px fijos, siempre
+   visible. En celular eso le dejaba a "main" un resto angosto y el
+   contenido terminaba recortado. Mismo patrón que el classroom (fuera de
+   pantalla + botón para traerlo) en vez de colapsar a íconos, porque acá
+   los links son puro texto (16 secciones, sin ícono propio como en
+   Sidebar.jsx) — quedarían irreconocibles reducidos a solo un cuadradito. */
+.admin-mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 60;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  background: var(--color-dark-bg);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.admin-mobile-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: #fff;
+  border-radius: 2px;
+}
+.admin-backdrop {
+  display: none;
+}
+@media (max-width: 860px) {
+  .admin-mobile-toggle { display: flex; }
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 55;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+  }
+  .admin-sidebar.open { transform: translateX(0); box-shadow: var(--shadow); }
+  .admin-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 50;
+  }
+  .admin-main { padding: 80px 20px 32px !important; }
+}
