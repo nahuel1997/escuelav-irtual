@@ -68,6 +68,16 @@ const env = {
   // hace falta (ej: durante un debug puntual). Los tests ya los ignoran
   // solos por NODE_ENV=test, esto es una llave aparte para desarrollo.
   JOBS_HABILITADOS: process.env.JOBS_HABILITADOS !== 'false',
+
+  // --- Errores (ver Admin → Errores) ---
+  // Casilla a la que avisar cada vez que un alumno/profesor usa "Reportar
+  // error". Vacío = solo el aviso dentro del panel (contador en el menú).
+  ALERTA_ERRORES_MAIL: process.env.ALERTA_ERRORES_MAIL || null,
+
+  // --- Tickets de soporte ---
+  // Casilla del equipo a la que avisar de cada ticket nuevo. Vacío = solo
+  // aparecen en la bandeja del panel.
+  SOPORTE_AVISO_MAIL: process.env.SOPORTE_AVISO_MAIL || null,
 };
 
 if (env.NODE_ENV === 'production' && env.JWT_SECRET === 'dev-secret-inseguro-cambiar') {

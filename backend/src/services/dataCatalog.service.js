@@ -13,7 +13,18 @@
 // hashes y secretos no tienen ningún motivo para salir por esta API.
 const db = require('../config/db');
 
-const TABLAS_EXCLUIDAS = ['knex_migrations', 'knex_migrations_lock', 'api_clients', 'api_client_permisos', 'api_usage_log'];
+const TABLAS_EXCLUIDAS = [
+  'knex_migrations', 'knex_migrations_lock', 'api_clients', 'api_client_permisos', 'api_usage_log',
+  // Seguridad y operación internas: no tiene sentido (y sería riesgoso)
+  // exponerlas a un sistema externo.
+  'api_bloqueados', 'api_bruteforce', 'api_errores', 'login_eventos', 'login_intentos', 'ips_bloqueadas',
+  'errores_app', 'reportes_error', 'reportes_error_adjuntos', 'procesos', 'trafico_eventos', 'metricas_app',
+  'backups_admins', 'actualizaciones_admins', 'tester_sesiones', 'tester_observaciones', 'pantallas_estado',
+  'pantallas_bloqueos', 'menu_items', 'menu_secciones', 'jobs_config',
+  // Datos internos o personales que no tienen por qué salir a otro sistema.
+  'asistente_conversaciones', 'envios_pdf', 'campania_envios', 'oferta_eventos', 'profesor_calificaciones',
+  'profesor_adjuntos', 'ticket_aprobaciones', 'ticket_adjuntos', 'ticket_mensajes',
+];
 const COLUMNA_BLOQUEADA = /password|contrasena|hash|secret|token/i;
 
 async function listarTablas() {

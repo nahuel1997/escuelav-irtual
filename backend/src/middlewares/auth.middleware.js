@@ -14,6 +14,9 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const loginLogModel = require('../models/loginLog.model');
 const { AppError } = require('./error.middleware');
+const presencia = require('../services/presencia.service');
+const mantenimiento = require('../services/mantenimiento.service');
+const pantallas = require('../services/pantallas.service');
 
 async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
@@ -50,6 +53,30 @@ async function requireAuth(req, res, next) {
   }
 
   req.user = payload; // { id, email, rol, jti }
+  presencia.marcar(payload, req.originalUrl);
+
+  // Modo mantenimiento por rol (Admin → Configuración): el rol afectado
+  // recibe 503 en todo menos /api/auth/* (para poder ver su sesión y salir).
+  if (req.baseUrl !== '/api/auth') {
+    try {
+      const mant = await mantenimiento.bloqueaA(payload.rol);
+      if (mant) {
+        const err = new AppError(mant.mensaje, 503);
+        err.codigo = 'MANTENIMIENTO';
+        return next(err);
+      }
+      // Habilitación de pantallas: sección en reparación u oculta, o
+      // bloqueada para este usuario puntual (ver pantallas.service.js).
+      const restriccion = await pantallas.restriccion(payload, req.baseUrl);
+      if (restriccion) {
+        const err = new AppError(restriccion.mensaje, restriccion.status);
+        err.codigo = restriccion.codigo;
+        return next(err);
+      }
+    } catch (err) {
+      console.error('[auth] no se pudo leer el modo mantenimiento', err.message);
+    }
+  }
   next();
 }
 

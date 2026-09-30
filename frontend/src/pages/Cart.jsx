@@ -75,7 +75,7 @@ export default function Cart() {
                 <div key={item.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexDirection: 'row' }}>
                   <div>
                     <strong>{item.titulo}</strong>
-                    <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.85rem' }}>{formatPrecio(item.precio)}</p>
+                    <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.85rem' }}>{item.precio_original ? <><s className="text-muted" style={{ fontWeight: 400, marginRight: 6 }}>{formatPrecio(item.precio_original)}</s>{formatPrecio(item.precio)} <span className="badge badge-danger">-{item.descuento_pct}%</span></> : formatPrecio(item.precio)}</p>
                   </div>
                   <button className="btn btn-outline btn-sm" onClick={() => quitar(item.id)}>Quitar</button>
                 </div>

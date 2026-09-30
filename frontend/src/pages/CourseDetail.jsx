@@ -102,7 +102,7 @@ export default function CourseDetail() {
         <h1>{course.titulo}</h1>
         {nombreProfesor && <p className="text-muted" style={{ marginTop: -8 }}>Dictado por <strong>{nombreProfesor}</strong></p>}
         <p className="text-muted">{course.descripcion}</p>
-        <p style={{ fontSize: '1.4rem', color: colorAcento || 'var(--color-primary)' }}><strong>{formatPrecio(course.precio)}</strong></p>
+        <p style={{ fontSize: '1.4rem', color: colorAcento || 'var(--color-primary)' }}><strong>{course.precio_original ? <><s className="text-muted" style={{ fontWeight: 400, marginRight: 6 }}>{formatPrecio(course.precio_original)}</s>{formatPrecio(course.precio)} <span className="badge badge-danger">-{course.descuento_pct}%</span></> : formatPrecio(course.precio)}</strong></p>
 
         {error && <div className="alert alert-error">{error}</div>}
         {ok && <div className="alert alert-success">¡Listo! Ya estás inscripto. Podés entrar al classroom desde "Mis cursos".</div>}

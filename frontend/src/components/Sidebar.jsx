@@ -3,6 +3,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { useContent } from '../hooks/useContent';
 import { API_ORIGIN } from '../api/client';
 import Icon from './Icon';
+import { usePantallas } from '../hooks/usePantallas';
 
 const CLAVE_COLAPSADO = 'sidebar_colapsado';
 
@@ -16,7 +17,17 @@ const CLAVE_COLAPSADO = 'sidebar_colapsado';
 // `icon` es el nombre de un ícono de Icon.jsx (SVG monocromático, no
 // emoji — ver ese archivo) — se renderiza con <Icon name={l.icon} />.
 function getSidebarLinks(user) {
-  const comunes = [{ to: '/', label: 'Inicio', icon: 'home', end: true }];
+  const comunes = [
+    { to: '/', label: 'Inicio', icon: 'home', end: true },
+    { to: '/alertas', label: 'Alertas', icon: 'bell' },
+  ];
+  // Al final del menú: ayuda con seguimiento y reporte de fallas.
+  const ayuda = [
+    { to: '/mis-consultas', label: 'Mis consultas', icon: 'lifebuoy' },
+    { to: '/reportar-error', label: 'Reportar error', icon: 'bug' },
+    { to: '/novedades', label: 'Novedades', icon: 'document' },
+    { to: '/manual', label: 'Manual de uso', icon: 'book' },
+  ];
 
   if (user.rol === 'profesor') {
     return [
@@ -25,6 +36,7 @@ function getSidebarLinks(user) {
       { to: '/mis-cursos', label: 'Mis cursos', icon: 'book' },
       { to: '/calendario', label: 'Calendario', icon: 'calendar' },
       { to: '/clases-en-vivo', label: 'Clases en vivo', icon: 'video' },
+      ...ayuda,
     ];
   }
 
@@ -40,6 +52,8 @@ function getSidebarLinks(user) {
     { to: '/cv', label: 'Creador de CV', icon: 'document' },
     { to: '/integraciones-ia', label: 'Integraciones IA', icon: 'plug' },
     { to: '/gpts', label: 'GPTs', icon: 'bot' },
+    { to: '/encuestas', label: 'Encuestas', icon: 'check' },
+    ...ayuda,
   ];
 }
 
@@ -66,7 +80,9 @@ export default function Sidebar({ user }) {
   const { values: content } = useContent();
   const logo = content['general.logo'];
   const logoAlt = content['general.logo.alt'] || 'Escuela Online';
-  const links = getSidebarLinks(user);
+  const { visibleEnMenu } = usePantallas(user);
+  // Sin las secciones ocultas o bloqueadas para este usuario (Admin → Pantallas).
+  const links = getSidebarLinks(user).filter((l) => visibleEnMenu(l.to));
   // Iniciales para el logo colapsado: la mayoría de los logos son
   // isotipo + texto (no un ícono cuadrado), así que achicar la imagen tal
   // cual la deja ilegible en la barra angosta — mostramos las iniciales

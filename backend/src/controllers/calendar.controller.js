@@ -5,6 +5,7 @@ const contentModel = require('../models/content.model');
 const mailService = require('../services/mail.service');
 const env = require('../config/env');
 const { formatFecha, formatHora } = require('../utils/fecha');
+const { feriadoDe } = require('../services/feriados.service');
 const { asyncHandler, AppError } = require('../middlewares/error.middleware');
 
 // Manda el mismo mail (clave: 'cita_creada' o 'cita_aprobada') a las dos
@@ -71,6 +72,11 @@ const solicitarTurno = asyncHandler(async (req, res) => {
   }
   if (inicio.getTime() < Date.now()) {
     throw new AppError('No podés solicitar un turno en una fecha ya pasada', 400);
+  }
+  // Feriados cargados en Admin → Configuración.
+  const feriado = await feriadoDe(inicio);
+  if (feriado) {
+    throw new AppError(`Ese día es feriado (${feriado.nombre}). Elegí otra fecha.`, 400);
   }
 
   if (course_id) {

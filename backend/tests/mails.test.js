@@ -55,12 +55,14 @@ describe('Backoffice de mails: plantillas, configuración y listas', () => {
 
   // --- Plantillas ---
 
-  test('el admin ve las 12 plantillas seedeadas', async () => {
+  test('el admin ve las 17 plantillas (seed + backoffice)', async () => {
     const res = await request(app).get('/api/admin/mails/plantillas').set('Authorization', `Bearer ${tokenAdmin}`);
     expect(res.status).toBe(200);
     // 10 originales + clase_en_vivo_programada + clase_en_vivo_cancelada
-    // (ver seeds/002_email_templates.js).
-    expect(res.body.plantillas.length).toBe(12);
+    // (ver seeds/002_email_templates.js) + las 5 del backoffice (reporte de
+    // error, reenvío de PDF, tickets y aprobación — ver la migración
+    // 20260930000005_seed_plantillas_backoffice.js).
+    expect(res.body.plantillas.length).toBe(17);
     expect(res.body.plantillas.some((p) => p.clave === 'bienvenida')).toBe(true);
   });
 

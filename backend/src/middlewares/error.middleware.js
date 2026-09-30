@@ -7,8 +7,20 @@ function notFoundHandler(req, res, next) {
 
 function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-vars
   const status = err.status || 500;
-  if (status >= 500) {
-    console.error('[ERROR]', err);
+  // Un 503 de mantenimiento (ver auth.middleware.js) es esperado: no es una
+  // falla, no se registra y su mensaje sí se le muestra al usuario.
+  const esperado = ['MANTENIMIENTO', 'PANTALLA_REPARACION', 'ASISTENTE_NO_CONFIGURADO'].includes(err.codigo);
+  if (status >= 500 && !esperado) {
+    // Registro agrupado de Admin → Errores (con stack, usuario y ruta). Se
+    // loguea con la consola original para no registrarlo dos veces vía la
+    // captura de console.error (ver erroresApp.service.js).
+    try {
+      const erroresApp = require('../services/erroresApp.service');
+      erroresApp.registrar({ origen: 'servidor', mensaje: err.message || 'Error interno', stack: err.stack, contexto: 'errorHandler' });
+      erroresApp.consolaOriginal('[ERROR]', err);
+    } catch (_e) {
+      console.error('[ERROR]', err);
+    }
     // Solo persistimos errores 5xx (fallas reales del sistema), no 4xx de
     // uso normal (permisos, validaciones de negocio) — eso llenaría el
     // registro de ruido sin aportar nada útil para "Errores" en el admin.
@@ -38,11 +50,11 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
   // tabla, columnas, hasta el SQL de la query, como pasó con el error de
   // login_logs). El detalle real solo queda en el log del servidor y en
   // /admin-panel/errores; al usuario le llega un mensaje genérico y claro.
-  const mensaje = status >= 500
+  const mensaje = status >= 500 && !esperado
     ? 'Ocurrió un error inesperado en el servidor. Por favor, intentá de nuevo en unos minutos.'
     : (err.publicMessage || err.message || 'Ocurrió un error. Intentá de nuevo.');
 
-  res.status(status).json({ error: mensaje });
+  res.status(status).json(err.codigo && (status < 500 || esperado) ? { error: mensaje, codigo: err.codigo } : { error: mensaje });
 }
 
 // Helper para no repetir try/catch en cada controller async.

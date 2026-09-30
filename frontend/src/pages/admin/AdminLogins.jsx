@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { formatFecha as formatearFecha } from '../../utils/fecha';
+import LoginIntentosTab from './LoginIntentosTab';
 
 function formatearDuracion(inicio, fin) {
   if (!fin) return null;
@@ -30,6 +31,22 @@ function formatearUbicacion(l) {
 // a mano, queda "Sesión activa" hasta que el token expire solo — es una
 // limitación honesta de JWT, no un bug (ver auth.middleware.js).
 export default function AdminLogins() {
+  const [tab, setTab] = useState('sesiones');
+  return (
+    <div>
+      <h1>Sesiones</h1>
+      <div style={{ display: 'flex', gap: 6, marginTop: 8, borderBottom: '1px solid var(--color-border)', paddingBottom: 12 }}>
+        <button className={`btn btn-sm ${tab === 'sesiones' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('sesiones')}>Sesiones</button>
+        <button className={`btn btn-sm ${tab === 'intentos' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('intentos')}>Intentos de ingreso</button>
+      </div>
+      <div style={{ marginTop: 16 }}>
+        {tab === 'sesiones' ? <SesionesTab /> : <LoginIntentosTab />}
+      </div>
+    </div>
+  );
+}
+
+function SesionesTab() {
   const [searchParams] = useSearchParams();
   const [usuarios, setUsuarios] = useState([]);
   const [logins, setLogins] = useState([]);
@@ -77,7 +94,6 @@ export default function AdminLogins() {
 
   return (
     <div>
-      <h1>Sesiones</h1>
       <p className="text-muted">Historial de conexiones de cada usuario, de dónde se conectaron y cuáles siguen activas.</p>
 
       <form onSubmit={handleFiltrar} className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 16 }}>

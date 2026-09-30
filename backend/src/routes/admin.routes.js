@@ -9,6 +9,9 @@ const mailsController = require('../controllers/mails.controller');
 const apiClientsController = require('../controllers/apiClients.controller');
 const paymentsController = require('../controllers/payments.controller');
 const liveClassesController = require('../controllers/liveClasses.controller');
+const seguridadController = require('../controllers/seguridad.controller');
+const erroresController = require('../controllers/errores.controller');
+const reportesErrorController = require('../controllers/reportesError.controller');
 const { requireAuth, requireRole } = require('../middlewares/auth.middleware');
 const { uploadImagen } = require('../middlewares/upload.middleware');
 
@@ -17,9 +20,28 @@ router.use(requireAuth, requireRole('admin'));
 
 router.get('/dashboard', adminController.getDashboard);
 
+// Operación: configuración, estado de la app, tráfico, versiones,
+// procesos, tareas programadas, backups y actualizaciones.
+router.use(require('./adminOperacion.routes'));
+
 router.get('/users', adminController.listUsersByRole);
 router.post('/users', adminController.createUser);
 router.put('/users/:id', adminController.updateUser);
+
+// Seguridad de cuentas (ver seguridad.controller.js y README "Seguridad
+// de cuentas"): alta/baja, bloqueo manual, IPs bloqueadas, historial de
+// intentos de login.
+router.put('/users/:id/activo', seguridadController.setActivo);
+router.put('/users/:id/bloqueo', seguridadController.setBloqueo);
+router.get('/ips-bloqueadas', seguridadController.listIps);
+router.post('/ips-bloqueadas', seguridadController.bloquearIp);
+router.delete('/ips-bloqueadas/:id', seguridadController.desbloquearIp);
+router.get('/login-intentos', seguridadController.listLoginEventos);
+router.get('/seguridad/resumen', seguridadController.resumenSeguridad);
+
+// Alertas a alumnos/profesores (pop-up + historial + "recibido").
+router.get('/alertas', seguridadController.listAlertas);
+router.post('/alertas', seguridadController.crearAlerta);
 
 router.get('/courses', adminController.listCourses);
 router.post('/courses', adminController.createCourse);
@@ -44,6 +66,20 @@ router.delete('/botones/:id', adminController.deleteButtonOption);
 
 router.get('/errores', adminController.listErrorLogs);
 router.delete('/errores', adminController.clearErrorLogs);
+
+// Registro completo de errores (servidor + navegador, agrupados por
+// huella), errores de mails y "Errores alertados" por los usuarios — ver
+// errores.controller.js y reportesError.controller.js.
+router.get('/errores/app', erroresController.listApp);
+router.delete('/errores/app', erroresController.limpiarApp);
+router.get('/errores/app/:id', erroresController.detalleApp);
+router.delete('/errores/app/:id', erroresController.borrarApp);
+router.get('/errores/mails', erroresController.listMails);
+router.get('/reportes-error', reportesErrorController.listAdmin);
+router.get('/reportes-error/resumen', reportesErrorController.resumen);
+router.get('/reportes-error/adjuntos/:adjuntoId', reportesErrorController.adjunto);
+router.get('/reportes-error/:id', reportesErrorController.detalle);
+router.put('/reportes-error/:id/estado', reportesErrorController.setEstado);
 
 router.get('/logins', adminController.listLoginLogs);
 router.post('/logins/:id/cerrar', adminController.revocarSesion);
@@ -89,6 +125,12 @@ router.post('/testing/pagos/orden', testingController.iniciarPagoDePrueba);
 // Accesos a la API de datos para sistemas externos (usuario/contraseña +
 // permisos por tabla/columna — ver dataApi.controller.js, que es el
 // endpoint que consumen esos accesos, autenticado aparte con Basic Auth).
+// Bloqueos (IP/usuario de API) y textos de error editables de la API de datos.
+router.get('/api-clients/bloqueados', apiClientsController.listBloqueados);
+router.post('/api-clients/bloqueados', apiClientsController.bloquear);
+router.delete('/api-clients/bloqueados/:id', apiClientsController.desbloquear);
+router.get('/api-clients/errores', apiClientsController.listErrores);
+router.put('/api-clients/errores/:codigo', apiClientsController.setError);
 router.get('/api-clients', apiClientsController.listClients);
 router.get('/api-clients/catalogo', apiClientsController.getCatalogo);
 router.post('/api-clients', apiClientsController.createClient);

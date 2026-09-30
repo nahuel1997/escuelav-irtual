@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, API_URL } from '../../api/client';
+import { TabBloqueosApi, TabErroresApi } from './ApiSeguridadTabs';
 
 function formatearFecha(iso) {
   if (!iso) return '—';
@@ -319,6 +320,8 @@ export default function AdminApis() {
       <div style={{ display: 'flex', gap: 6, marginTop: 16, borderBottom: '1px solid var(--color-border)', paddingBottom: 12 }}>
         <button className={`btn btn-sm ${tab === 'accesos' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('accesos')}>Accesos</button>
         <button className={`btn btn-sm ${tab === 'detalle' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('detalle')}>Detalle y uso</button>
+        <button className={`btn btn-sm ${tab === 'bloqueos' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('bloqueos')}>Bloqueos</button>
+        <button className={`btn btn-sm ${tab === 'errores' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('errores')}>Mensajes de error</button>
       </div>
 
       {error && <div className="alert alert-error" style={{ marginTop: 16 }}>{error}</div>}
@@ -328,6 +331,10 @@ export default function AdminApis() {
           <div className="spinner-msg">Cargando…</div>
         ) : tab === 'accesos' ? (
           <TabAccesos clients={clients} catalogo={catalogo} recargar={cargar} />
+        ) : tab === 'bloqueos' ? (
+          <TabBloqueosApi />
+        ) : tab === 'errores' ? (
+          <TabErroresApi />
         ) : (
           <TabDetalleYUso clients={clients} />
         )}

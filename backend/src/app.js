@@ -20,6 +20,11 @@ const { notFoundHandler, errorHandler } = require('./middlewares/error.middlewar
 const db = require('./config/db');
 const migrationStatus = require('./utils/migrationStatus');
 
+// Registro de errores para Admin → Errores: desde acá todo console.error
+// queda guardado, agrupado, en errores_app (ver erroresApp.service.js).
+const erroresApp = require('./services/erroresApp.service');
+erroresApp.capturarConsola();
+
 // 2) Creación de la app de Express.
 const app = express();
 
@@ -55,6 +60,18 @@ app.use(express.urlencoded({ extended: false }));
 // eventualmente, imágenes de perfil. En producción esto normalmente se
 // movería a un storage externo (S3, etc.), pero para arrancar alcanza con
 // disco local.
+// IPs bloqueadas (a mano o por fuerza bruta del login): no llegan a
+// ninguna ruta de la API ni a los archivos subidos — va antes de todo a
+// propósito (ver middlewares/ipBloqueada.middleware.js).
+app.use(require('./middlewares/ipBloqueada.middleware'));
+
+// URL, método y usuario de la request para los errores que se registren
+// mientras se atiende.
+app.use(erroresApp.middlewareContexto);
+
+// Requests por minuto, latencia y rutas lentas para Estado de la app.
+app.use(require('./services/metricas.service').middleware);
+
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // 4) Montaje de rutas. Cada dominio de la app vive en su propio archivo de
@@ -107,6 +124,28 @@ app.use('/api/ai', require('./routes/ai.routes'));
 // (login OIDC, launch, jwks) y el frontend (exchange) — el alta de
 // plataformas es admin, ver /api/admin/lti/* en admin.routes.js.
 app.use('/api/lti', require('./routes/lti.routes'));
+// Alertas (alumno/profesor): mensajes de texto libre que manda el admin,
+// pop-up la primera vez + historial propio — el alta y el listado
+// completo son del admin, ver /api/admin/alertas en admin.routes.js.
+app.use('/api/alertas', require('./routes/alertas.routes'));
+// Errores de JS del navegador y "Reportar error" (cualquier usuario logueado).
+app.use('/api/app', require('./routes/app.routes'));
+// Tickets de soporte (usuario + gestión del equipo) y la aprobación
+// pública por link que se manda por mail.
+app.use('/api/tickets', require('./routes/tickets.routes'));
+app.use('/api/aprobacion', require('./routes/aprobacion.routes'));
+// Procesos en segundo plano (P-000123): PDFs, envíos, campañas.
+app.use('/api/procesos', require('./routes/procesos.routes'));
+// Marketing: ofertas en la app (públicas) y seguimiento de campañas de
+// mail (apertura, click, baja de publicidad) — ver marketing.routes.js.
+const marketingRoutes = require('./routes/marketing.routes');
+app.use('/api/ofertas', marketingRoutes.ofertasRouter);
+app.use('/api/m', marketingRoutes.seguimientoRouter);
+// Encuesta de satisfacción de los alumnos (por curso).
+app.use('/api/encuestas', require('./routes/encuestas.routes'));
+// Lo que el frontend necesita saber antes de mostrar nada (modo
+// mantenimiento, textos de páginas de error, modo oscuro, feriados).
+app.get('/api/estado-publico', require('./controllers/configuracion.controller').estadoPublico);
 
 // Endpoint simple para chequear que el server está vivo (útil para health
 // checks, monitoreo, o simplemente para probar que todo arrancó bien).
@@ -171,6 +210,18 @@ async function chequearMigraciones() {
 //    devuelve attachChatSocket() (que ya resolvió la autenticación por
 //    JWT), agregando sus propios eventos sobre esa conexión.
 if (require.main === module) {
+  // Red de seguridad: un error async que se escape por fuera de una
+  // request (timers, jobs, callbacks) se registra en vez de tumbar el
+  // proceso; un uncaughtException deja el proceso en estado indefinido, así
+  // que se registra y se sale (el process manager lo levanta de nuevo).
+  process.on('unhandledRejection', (reason) => {
+    console.error('unhandledRejection', reason instanceof Error ? reason : new Error(String(reason)));
+  });
+  process.on('uncaughtException', (err) => {
+    console.error('uncaughtException', err);
+    erroresApp.escribirAhora().catch(() => {}).finally(() => setTimeout(() => process.exit(1), 300));
+  });
+
   chequearMigraciones().finally(() => {
     const server = http.createServer(app);
     const io = require('./realtime/chatSocket').attachChatSocket(server);
@@ -178,7 +229,9 @@ if (require.main === module) {
     server.listen(env.PORT, () => {
       console.log(`API de la escuela escuchando en http://localhost:${env.PORT}`);
       console.log(`CORS habilitado para: ${env.FRONTEND_URL}`);
-      require('./jobs').iniciar();
+      require('./jobs').iniciar().catch((e) => console.error('[jobs] no se pudieron iniciar:', e.message));
+      // Trabajador de procesos en segundo plano (PDFs, envíos, campañas).
+      require('./services/procesos').iniciarTrabajador().catch((e) => console.error('[procesos]', e.message));
     });
   });
 }

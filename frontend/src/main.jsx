@@ -7,7 +7,11 @@ import { AdminAuthProvider } from './context/AdminAuthContext.jsx';
 import { SupportAuthProvider } from './context/SupportAuthContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { instalarCapturaErrores } from './utils/erroresNavegador.js';
 import './styles/global.css';
+
+// Los errores de JS de cualquier pantalla quedan en Admin → Errores.
+instalarCapturaErrores();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

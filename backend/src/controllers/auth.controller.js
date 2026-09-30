@@ -4,6 +4,9 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const userModel = require('../models/user.model');
 const loginLogModel = require('../models/loginLog.model');
+const loginIntentoModel = require('../models/loginIntento.model');
+const loginEventoModel = require('../models/loginEvento.model');
+const ipBloqueadaModel = require('../models/ipBloqueada.model');
 const emailVerificationModel = require('../models/emailVerification.model');
 const mailService = require('../services/mail.service');
 const geoService = require('../services/geo.service');
@@ -107,28 +110,78 @@ const register = asyncHandler(async (req, res) => {
   res.status(201).json({ token, user });
 });
 
+function minutosHasta(fecha) {
+  return Math.max(1, Math.ceil((fecha.getTime() - Date.now()) / 60000));
+}
+
+// Login con fuerza bruta escalonada (ver README "Seguridad de cuentas" y
+// loginIntento.model.js). La clave de la racha es IP + email:
+//   10 fallos -> espera 1 min · 20 fallos -> espera 5 min · 21 -> se
+//   bloquea la IP (nunca la cuenta: si no, cualquiera podría dejar afuera a
+//   un usuario sabiendo su email — misma decisión que DBA24).
+// Una IP ya bloqueada ni llega acá: la corta ipBloqueada.middleware.js.
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     throw new AppError('Ingresá tu email y tu contraseña', 400);
   }
+  const emailNormalizado = String(email).toLowerCase().trim();
+  const ip = req.ip;
+  const userAgent = req.headers['user-agent'];
+  const evento = (resultado, extra = {}) => loginEventoModel.registrar({ email: emailNormalizado, ip, userAgent, resultado, ...extra });
 
-  const user = await userModel.findByEmail(email.toLowerCase().trim());
+  // Por las dudas (ej: el middleware no está montado en algún entorno).
+  if (await ipBloqueadaModel.estaBloqueada(ip)) {
+    await evento('ip_bloqueada');
+    throw new AppError('Tu conexión está bloqueada por seguridad.', 403);
+  }
+
+  // En espera: corta ANTES de bcrypt, sin revelar si la contraseña era buena.
+  const clave = loginIntentoModel.armarClave(ip, emailNormalizado);
+  const esperaHasta = await loginIntentoModel.estaEsperando(clave);
+  if (esperaHasta) {
+    await evento('espera');
+    const minutos = minutosHasta(esperaHasta);
+    throw new AppError(`Demasiados intentos fallidos. Esperá ${minutos} minuto${minutos === 1 ? '' : 's'} y volvé a intentar.`, 429);
+  }
+
+  const user = await userModel.findByEmail(emailNormalizado);
   // Corremos bcrypt.compare tanto si el usuario existe como si no (contra
   // un hash de relleno en ese caso) y respondemos con el mismo mensaje y
-  // status en ambos casos. Antes distinguíamos "no existe cuenta" de
-  // "contraseña incorrecta" para guiar mejor al usuario, pero eso permite
-  // enumerar qué emails están registrados probando logins uno por uno —
-  // en una plataforma que va a manejar altas de profesores/admins no vale
-  // la pena ese costo por una UX apenas mejor.
+  // status en ambos casos — así no se pueden enumerar los emails
+  // registrados probando logins uno por uno.
   const passwordOk = await bcrypt.compare(password, user ? user.password_hash : HASH_RELLENO);
   if (!user || !passwordOk) {
+    const { intentos, bloqueoDefinitivo } = await loginIntentoModel.registrarFallo(clave);
+    if (bloqueoDefinitivo) {
+      await ipBloqueadaModel.bloquear(ip, {
+        motivo: `Bloqueo automático: ${intentos} intentos fallidos seguidos contra ${emailNormalizado}`,
+      });
+      await evento('bloqueo_ip', { userId: user?.id, detalle: `${intentos} fallos` });
+    } else {
+      await evento('fallido', { userId: user?.id, detalle: `${intentos} fallo${intentos === 1 ? '' : 's'} seguidos` });
+    }
+    // Mismo mensaje siempre: no delata ni el bloqueo recién hecho ni si la
+    // cuenta existe.
     throw new AppError('Email o contraseña incorrectos', 401);
+  }
+
+  // Contraseña correcta: se limpia la racha. Recién acá (nunca en un
+  // intento fallido) se revela si la cuenta está dada de baja o bloqueada.
+  await loginIntentoModel.limpiar(clave);
+  if (!user.activo) {
+    await evento('inactivo', { userId: user.id });
+    throw new AppError('Tu cuenta está desactivada. Si creés que es un error, contactá a la escuela.', 403);
+  }
+  if (user.bloqueado) {
+    await evento('bloqueado', { userId: user.id });
+    throw new AppError(`Tu cuenta está bloqueada. Motivo: ${user.bloqueado_motivo || 'sin especificar'}. Contactá a la escuela.`, 403);
   }
 
   const jti = crypto.randomUUID();
   const token = signToken(user, jti);
   await registrarSesion(user, req, jti);
+  await evento('exitoso', { userId: user.id });
   const { password_hash, ...userPublico } = user;
   res.json({ token, user: userPublico });
 });
@@ -206,4 +259,14 @@ const resendVerification = asyncHandler(async (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = { register, login, me, logout, verifyEmail, resendVerification };
+// Abre una sesión real (token + login_logs) para un usuario, sin
+// contraseña — solo para usos internos del servidor (el Tester del panel
+// de admin, ver panel.controller.js). Nunca se expone como endpoint.
+async function emitirSesion(user, req) {
+  const jti = crypto.randomUUID();
+  const token = signToken(user, jti);
+  await registrarSesion(user, req, jti);
+  return { token, jti };
+}
+
+module.exports = { register, login, me, logout, verifyEmail, resendVerification, emitirSesion };

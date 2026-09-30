@@ -108,6 +108,31 @@ const PATHS = {
     </>
   ),
   check: <path d="M20 6.5 9.5 17 4 11.5" />,
+  lifebuoy: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="3.5" />
+      <path d="m6 6 3.5 3.5M14.5 14.5 18 18M18 6l-3.5 3.5M9.5 14.5 6 18" />
+    </>
+  ),
+  bug: (
+    <>
+      <rect x="7.5" y="7" width="9" height="12" rx="4.5" />
+      <path d="M12 7V19M9 5l1.5 2M15 5l-1.5 2M4 11h3.5M16.5 11H20M4.5 16h3M16.5 16h3" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9-8-8z" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M6 10.5a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 18, strokeWidth = 1.8, style, ...rest }) {

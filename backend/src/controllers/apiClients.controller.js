@@ -4,6 +4,8 @@
 // consumen esos accesos y dataCatalog.service.js para de dónde sale la
 // lista de tablas/columnas disponibles.
 const crypto = require('crypto');
+const net = require('net');
+const apiSeguridadModel = require('../models/apiSeguridad.model');
 const bcrypt = require('bcryptjs');
 const apiClientModel = require('../models/apiClient.model');
 const apiUsageLogModel = require('../models/apiUsageLog.model');
@@ -114,7 +116,51 @@ const listUso = asyncHandler(async (req, res) => {
   res.json({ uso });
 });
 
+// --- Bloqueos de la API (IP o usuario de API) ---
+
+const listBloqueados = asyncHandler(async (req, res) => {
+  res.json({ bloqueados: await apiSeguridadModel.listBloqueados() });
+});
+
+const bloquear = asyncHandler(async (req, res) => {
+  const { tipo } = req.body;
+  const valor = String(req.body.valor || '').trim();
+  const motivo = String(req.body.motivo || '').trim().slice(0, 500);
+  if (!['ip', 'usuario'].includes(tipo)) throw new AppError('Tipo inválido (ip o usuario)', 400);
+  if (!valor) throw new AppError(tipo === 'ip' ? 'Falta la IP' : 'Falta el usuario de API', 400);
+  if (tipo === 'ip' && !net.isIP(valor)) throw new AppError('La IP no es válida', 400);
+  if (!motivo) throw new AppError('Contá el motivo del bloqueo', 400);
+  const bloqueo = await apiSeguridadModel.bloquear({ tipo, valor, motivo, bloqueadoPor: req.user.id });
+  res.status(201).json({ bloqueo });
+});
+
+const desbloquear = asyncHandler(async (req, res) => {
+  await apiSeguridadModel.desbloquear(req.params.id);
+  res.json({ ok: true });
+});
+
+// --- Mensajes de error editables (el código y el status quedan fijos) ---
+
+const listErrores = asyncHandler(async (req, res) => {
+  res.json({ errores: await apiSeguridadModel.listErrores() });
+});
+
+const setError = asyncHandler(async (req, res) => {
+  const mensaje = String(req.body.mensaje || '').trim();
+  if (!mensaje) throw new AppError('El mensaje no puede quedar vacío', 400);
+  if (mensaje.length > 500) throw new AppError('Máximo 500 caracteres', 400);
+  const existente = await apiSeguridadModel.findError(req.params.codigo);
+  if (!existente) throw new AppError('Código de error desconocido', 404);
+  await apiSeguridadModel.setMensajeError(req.params.codigo, mensaje);
+  res.json({ error: await apiSeguridadModel.findError(req.params.codigo) });
+});
+
 module.exports = {
+  listBloqueados,
+  bloquear,
+  desbloquear,
+  listErrores,
+  setError,
   listClients,
   getCatalogo,
   createClient,

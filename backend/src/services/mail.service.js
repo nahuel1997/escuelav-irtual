@@ -39,7 +39,7 @@ const env = require('../config/env');
 const emailTemplateModel = require('../models/emailTemplate.model');
 const mailLogModel = require('../models/mailLog.model');
 const appSettingModel = require('../models/appSetting.model');
-const { renderTexto } = require('../utils/template');
+const { renderTexto, escaparHtml } = require('../utils/template');
 
 let transportPromise = null;
 let modoActual = null; // 'smtp' | 'test' | 'test-offline' — informativo (panel de admin)
@@ -120,7 +120,25 @@ function getModo() {
 // conectado sin mandarle nada a alumnos/profesores de verdad; se apaga
 // dejando el valor vacío. mail_log.destinatario queda con la dirección a
 // la que se mandó de verdad; redirigido_desde guarda para quién era.
-async function enviarMail({ clave, destinatario, variables = {}, userId = null, mailingListId = null }) {
+// Encabezado de los mails (Admin → Configuración → Logo de mails): logo
+// propio o texto sobre un color. Queda disponible en TODAS las plantillas
+// como {{encabezado_mail}} y lo usan las campañas.
+async function encabezadoMail() {
+  let cfg = { logoUrl: '', texto: 'Escuela Online', colorFondo: '#1c3d5a' };
+  try {
+    const guardado = await appSettingModel.getValor('config.logo_mail', '');
+    if (guardado) cfg = { ...cfg, ...JSON.parse(guardado) };
+  } catch (_e) {
+    // valores por defecto
+  }
+  const logo = cfg.logoUrl ? (cfg.logoUrl.startsWith('/') ? `${env.BACKEND_URL}${cfg.logoUrl}` : cfg.logoUrl) : '';
+  const interior = logo
+    ? `<img src="${escaparHtml(logo)}" alt="${escaparHtml(cfg.texto)}" style="max-height:48px; display:block;">`
+    : `<span style="font-size:20px; font-weight:bold; color:#ffffff;">${escaparHtml(cfg.texto)}</span>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="background:${escaparHtml(cfg.colorFondo)}; padding:16px 24px;">${interior}</td></tr></table>`;
+}
+
+async function enviarMail({ clave, destinatario, variables = {}, userId = null, mailingListId = null, adjuntos = [] }) {
   const plantilla = await emailTemplateModel.findByClave(clave);
   if (!plantilla) {
     console.error(`[mail.service] Plantilla desconocida: "${clave}"`);
@@ -130,8 +148,16 @@ async function enviarMail({ clave, destinatario, variables = {}, userId = null, 
     return { ok: false, motivo: 'plantilla_inactiva' };
   }
 
-  const asunto = renderTexto(plantilla.asunto, variables);
-  const cuerpo = renderTexto(plantilla.cuerpo_html, variables);
+  const conEncabezado = { encabezado_mail: await encabezadoMail(), ...variables };
+  const asunto = renderTexto(plantilla.asunto, conEncabezado);
+  const cuerpo = renderTexto(plantilla.cuerpo_html, conEncabezado);
+  return enviarRenderizado({ destinatario, asunto, cuerpo, tipo: clave, userId, mailingListId, adjuntos });
+}
+
+// Envía un mail ya armado (asunto + HTML) — lo usan las campañas, que no
+// tienen una plantilla fija. Mismo registro en mail_log, mismo modo prueba
+// y mismo "nunca tira" que enviarMail.
+async function enviarRenderizado({ destinatario, asunto, cuerpo, tipo, userId = null, mailingListId = null, adjuntos = [], headers }) {
   const remitente = `${env.MAIL_FROM_NAME} <${env.MAIL_FROM_EMAIL}>`;
 
   const modoPruebaDestino = (await appSettingModel.getValor('mail_modo_prueba_destinatario', '') || '').trim();
@@ -143,7 +169,7 @@ async function enviarMail({ clave, destinatario, variables = {}, userId = null, 
     remitente,
     asunto,
     cuerpo,
-    tipo: clave,
+    tipo,
     estado: 'pendiente',
     user_id: userId,
     mailing_list_id: mailingListId,
@@ -151,7 +177,14 @@ async function enviarMail({ clave, destinatario, variables = {}, userId = null, 
 
   try {
     const transporter = await getTransporter();
-    const info = await transporter.sendMail({ from: remitente, to: destinoReal, subject: asunto, html: cuerpo });
+    const info = await transporter.sendMail({
+      from: remitente,
+      to: destinoReal,
+      subject: asunto,
+      html: cuerpo,
+      attachments: adjuntos.length ? adjuntos.map((a) => ({ filename: a.nombre, content: a.buffer, contentType: a.mime })) : undefined,
+      headers,
+    });
     const previewUrl = getModo() === 'test' ? nodemailer.getTestMessageUrl(info) || null : null;
     await mailLogModel.markEnviado(logId, {
       proveedor: getModo(),
@@ -160,10 +193,10 @@ async function enviarMail({ clave, destinatario, variables = {}, userId = null, 
     });
     return { ok: true, previewUrl, modo: getModo(), redirigidoA: modoPruebaDestino || null };
   } catch (err) {
-    console.error(`[mail.service] Falló el envío de "${clave}" a ${destinatario}${modoPruebaDestino ? ` (redirigido a ${modoPruebaDestino})` : ''}:`, err.message);
+    console.error(`[mail.service] Falló el envío de "${tipo}" a ${destinatario}${modoPruebaDestino ? ` (redirigido a ${modoPruebaDestino})` : ''}:`, err.message);
     await mailLogModel.markFallido(logId, err.message).catch(() => {});
     return { ok: false, motivo: 'error_envio', error: err.message };
   }
 }
 
-module.exports = { enviarMail, renderTexto, getModo };
+module.exports = { enviarMail, enviarRenderizado, encabezadoMail, renderTexto, getModo };

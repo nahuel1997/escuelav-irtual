@@ -315,7 +315,10 @@ backend/src/
 | Calendario    | `GET /api/calendar/mis-turnos`, `POST /api/calendar/turnos` (alumno), `PUT /api/calendar/turnos/:id/aceptar` \| `/rechazar` \| `/cancelar` |
 | Clases en vivo (alumno/profesor) | `GET /api/clases-en-vivo/mias`, `GET /api/clases-en-vivo/:id/sala` (revela `room_id`/`jitsi_domain` solo si corresponde según rol y estado), `GET /api/clases-en-vivo/:id/mensajes` (historial), `PUT /api/clases-en-vivo/:id/iniciar` \| `/finalizar` (solo el/los profesor/es asignados; mandar mensajes en vivo es por socket, ver "Clases en vivo") |
 | **Admin — Clases en vivo** | `GET /api/admin/clases-en-vivo` (`?course_id=&estado=`), `GET /api/admin/clases-en-vivo/:id`, `POST /api/admin/clases-en-vivo` (agenda + avisa por mail), `PUT /api/admin/clases-en-vivo/:id` (solo mientras "programada"), `PUT /api/admin/clases-en-vivo/:id/cancelar` (solo mientras "programada"; avisa por mail) |
-| **Admin**     | `GET /api/admin/dashboard`, `GET/POST /api/admin/users` (`?rol=alumno\|profesor\|admin\|todos`), `GET/POST/PUT /api/admin/courses`, `GET/PUT /api/admin/content`, `POST /api/admin/upload-imagen`, `GET /api/admin/calendario`, `GET/POST/PUT/DELETE /api/admin/nav-links`, `GET/POST/PUT/DELETE /api/admin/botones`, `GET /api/admin/errores` (`?page=`, paginado de a 20), `DELETE /api/admin/errores` (limpia el registro), `GET /api/admin/logins`, `GET /api/admin/testing/suites`, `POST /api/admin/testing/run/:id` (todo protegido por rol admin) |
+| **Admin**     | `GET /api/admin/dashboard`, `GET/POST /api/admin/users` (`?rol=alumno\|profesor\|admin\|todos`), `PUT /api/admin/users/:id`, `PUT /api/admin/users/:id/activo` \| `/bloqueo` (ver "Seguridad de cuentas"), `GET/POST/PUT /api/admin/courses`, `GET/PUT /api/admin/content`, `POST /api/admin/upload-imagen`, `GET /api/admin/calendario`, `GET/POST/PUT/DELETE /api/admin/nav-links`, `GET/POST/PUT/DELETE /api/admin/botones`, `GET /api/admin/errores` (`?page=`, paginado de a 20), `DELETE /api/admin/errores` (limpia el registro), `GET /api/admin/logins`, `GET /api/admin/testing/suites`, `POST /api/admin/testing/run/:id` (todo protegido por rol admin) |
+| **Admin — Seguridad de cuentas** | `GET/POST /api/admin/ips-bloqueadas`, `DELETE /api/admin/ips-bloqueadas/:id` (ver "Seguridad de cuentas") |
+| **Admin — Alertas** | `GET/POST /api/admin/alertas` (ver "Alertas") |
+| Alertas (alumno/profesor) | `GET /api/alertas/pendiente` (pop-up, marca como mostradas), `GET /api/alertas/mias` (historial propio) |
 | **Admin — Mails** | `GET/PUT /api/admin/mails/plantillas[/:clave]`, `POST /api/admin/mails/plantillas/:clave/probar`, `GET/PUT /api/admin/mails/configuracion[/:clave]`, `GET /api/admin/mails/registro`, `GET/POST/PUT/DELETE /api/admin/mails/listas[/:id]`, `GET/POST /api/admin/mails/listas/:id/miembros`, `POST /api/admin/mails/listas/:id/miembros/todos`, `DELETE /api/admin/mails/listas/:id/miembros/:userId` \| `/todos`, `POST /api/admin/mails/listas/:id/enviar` (todo protegido por rol admin) |
 | Chat (alumno/profesor) | `GET /api/chat/mi-conversacion` → historial propio (mandar mensajes es por socket, ver "Chat de soporte en vivo") |
 | Chat (soporte) | `GET /api/soporte/conversaciones?estado=`, `GET /api/soporte/conversaciones/:id/mensajes` (protegido por rol soporte; responder/cerrar es por socket) |
@@ -343,6 +346,76 @@ con un link a `/verificar-email` para cargar el código o pedir uno nuevo
 registro ni el login dependen de este estado — es puramente informativo,
 a propósito, para no romper el flujo de "me registro y ya puedo usar la
 plataforma" que ya estaba probado.
+
+### Seguridad de cuentas
+
+Dos mecanismos independientes entre sí, gestionables desde "Usuarios" y
+"Bloqueados" en el panel de admin:
+
+- **Activo / inactivo** (`users.activo`, default `true`): es la baja de una
+  cuenta sin borrar nada — el usuario, sus cursos, entregas, etc. quedan
+  intactos, solo no puede volver a loguearse (`403`) hasta que un admin la
+  reactive. Pensado para bajas normales (alguien se va, se le da de baja el
+  acceso).
+- **Bloqueado** (`users.bloqueado` + `bloqueado_motivo` + `bloqueado_en`):
+  es una medida de seguridad, manual (el admin bloquea con un motivo) o
+  **automática**, por fuerza bruta en el login (ver abajo). Al loguearse con
+  la contraseña correcta, se revela el bloqueo y el motivo; con la
+  contraseña incorrecta, el mensaje es el genérico de siempre — así un
+  atacante no puede usar el login para "descubrir" si una cuenta está
+  bloqueada.
+
+Ambos, al activarse, cierran las sesiones abiertas de esa cuenta (mismo
+mecanismo de revocación por `jti` que usa "Cerrar sesión" desde
+"Sesiones"). Un admin no puede desactivarse ni bloquearse a sí mismo (evita
+quedarse afuera sin que quede otro admin para revertirlo).
+
+**Fuerza bruta del login**, en 3 tramos, por la combinación **IP + email**
+(no por email solo, para no poder bloquear la cuenta de otro a propósito
+fallando adrede desde varias IPs — ver `loginIntento.model.js`):
+
+| Fallos seguidos | Efecto |
+|---|---|
+| 10 | 1 minuto de espera antes de poder reintentar con esa IP+email |
+| 20 | 5 minutos de espera |
+| 21 | **Bloqueo definitivo**: se bloquea la IP entera (corta el login de cualquier cuenta desde ahí) y, si el email es de una cuenta real, también se bloquea esa cuenta (motivo automático) |
+
+El chequeo de "¿está en tiempo de espera?" se hace **antes** de `bcrypt`
+(ahorra CPU y no hace falta, porque es sobre la combinación IP+email en
+general, no sobre si la cuenta existe). Un login exitoso borra toda la
+racha de fallos acumulada. Las IPs bloqueadas (a mano o solas) se
+administran en "Bloqueados" → "IPs bloqueadas"; desde ahí también se
+pueden desbloquear.
+
+### Alertas
+
+El admin escribe un mensaje de texto libre y se lo manda a uno o varios
+alumnos/profesores (`/admin-panel/alertas` — con búsqueda por nombre/email
+y dos atajos, "todos los alumnos" y "todos los profesores", para no tener
+que tildar de a uno cuando el aviso es masivo). Al destinatario le
+aparece como un **pop-up al entrar**, una sola vez la primera vez que ve
+una alerta nueva — después queda disponible solo en su propia pestaña
+"Alertas" (`/alertas`) para volver a leerla.
+
+**Cómo**: tabla `alertas` (`user_id`, `admin_id`, `mensaje`,
+`mostrado_en`) — una fila por destinatario, no una tabla de "envío" +
+otra de "destinatarios" aparte (ver comentario en la migración). El
+pop-up se resuelve con `GET /api/alertas/pendiente`, que se llama una
+sola vez al cargar cualquier página con sesión de alumno/profesor (ver
+`AlertaPopup.jsx`, montado desde `Layout.jsx` igual que el chat de
+soporte y el carrito): busca la alerta más reciente con `mostrado_en
+IS NULL`, la devuelve para el pop-up, y en el mismo paso marca **todas**
+las pendientes de ese usuario como "ya mostradas" — así no vuelven a
+aparecer como pop-up (aunque sigan visibles en "Mis alertas"), ni
+siquiera si se le mandaron dos alertas seguidas antes de que entrara.
+Restringido a alumno/profesor: un admin no tendría dónde mostrarse el
+pop-up (`AdminLayout` no lo monta) y no tiene sentido para soporte, que
+tiene su propio panel aparte.
+
+**Por qué**: separa "avisar una vez, de forma intrusiva" (pop-up) de
+"queda disponible para volver a leer" (pestaña) — evita que alguien
+pierda un aviso importante sin ser tan invasivo como para mostrarlo cada
+vez que entra a la app.
 
 ### Carrito de compras
 
@@ -1306,6 +1379,24 @@ y layout (sidebar), protegida por rol `admin`:
   reset era una cuenta comprometida, dejar la sesión vieja funcionando
   anularía el sentido del cambio. Cada fila tiene un link **"Ver
   sesiones"** directo a "Sesiones", ya filtrado a ese usuario.
+  - Cada fila muestra también el **estado de seguridad de la cuenta**
+    (ver "Seguridad de cuentas" más arriba) con botones para
+    **Desactivar/Reactivar** y **Bloquear/Desbloquear** (bloquear pide un
+    motivo, en una fila de edición inline igual a la de email/contraseña).
+    Ninguno de los dos botones está disponible sobre la propia cuenta del
+    admin logueado.
+- **Bloqueados** (`/admin-panel/bloqueados`): vista centralizada de la
+  parte de "Seguridad de cuentas" que no vive en "Usuarios" — pestaña
+  **"IPs bloqueadas"** (listado + bloqueo manual con motivo +
+  desbloquear; incluye tanto las bloqueadas a mano como las que se
+  bloquean solas por el sistema de 3 tramos de fuerza bruta del login) y
+  pestaña **"Cuentas bloqueadas"** (un vistazo rápido de solo lectura,
+  con un link directo a "Usuarios" para actuar sobre cada una).
+- **Alertas** (`/admin-panel/alertas`): mandar un mensaje de texto libre
+  a uno o varios alumnos/profesores (con búsqueda y los atajos "todos los
+  alumnos"/"todos los profesores"), más el historial completo de lo
+  mandado con si cada destinatario ya la vio o no — ver "Alertas" más
+  arriba para el mecanismo del pop-up.
 - **Sesiones** (`/admin-panel/logins`): historial de conexiones de cada
   usuario — cuándo inició, cuándo terminó, desde qué **IP** y, resuelto
   por geolocalización, **país/provincia** (`backend/src/services/
@@ -1502,8 +1593,32 @@ conversación se DERIVA del GPT, y que el system prompt combinado llega en
 el formato correcto a cada uno de los 3 proveedores (role "system" en
 OpenAI, campo "system" en Anthropic, "systemInstruction" en Gemini),
 verificando además que editar o borrar el GPT nunca cambia
-retroactivamente el comportamiento de una conversación ya creada—).
-**302 tests, 22 suites, todo verde.**
+retroactivamente el comportamiento de una conversación ya creada—), y la
+seguridad de cuentas (`seguridadCuentas.test.js` — activo/inactivo
+—arranca activa, el admin la desactiva y el login rebota 403 aunque la
+contraseña sea correcta, cierre forzado de sesiones abiertas al
+desactivar, reactivación, y que un admin no pueda desactivarse a sí
+mismo—, bloqueado —bloquear con motivo revelado solo con contraseña
+correcta, nunca en un intento fallido, desbloquear, y que un admin no
+pueda bloquearse a sí mismo—, los 3 tramos de fuerza bruta del login
+—tramo 1 de punta a punta por HTTP, los 3 tramos contra el modelo
+directo para no depender de esperar los tiempos de espera reales, y que
+un login exitoso borra la racha—, el bloqueo definitivo disparado de
+punta a punta por HTTP —bloquea la IP y, si la cuenta existe, también la
+cuenta, con motivo automático—, y las IPs bloqueadas —alta manual con
+motivo, que bloquear la propia IP corta el login sin importar el email,
+y listar/desbloquear—), y Alertas (`alertas.test.js` — permisos (sin
+sesión da 401, un alumno no puede mandar/listar alertas de admin),
+validaciones (sin destinatarios, mensaje vacío, destinatario inexistente,
+y que no se le pueda mandar una alerta a otro admin), el envío a varios
+destinatarios a la vez quedando en el historial de cada uno, que el
+pop-up aparezca la primera vez y NO de nuevo después, que siga visible
+igual en "mis alertas" aunque ya no aparezca como pop-up, que un usuario
+nunca vea las alertas de otro, dos alertas seguidas sin que el
+destinatario entre en el medio —se muestra la más reciente pero las dos
+quedan marcadas y ambas siguen en el historial—, y que tanto alumno como
+profesor puedan ver las suyas).
+**329 tests, 24 suites, todo verde.**
 
 Las suites de chat (`chat.test.js`) y de clases en vivo
 (`liveClasses.test.js`) son una excepción a la falta de tests de

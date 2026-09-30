@@ -47,7 +47,15 @@ async function request(path, { method = 'GET', body, isFormData = false, auth = 
 
   if (!res.ok) {
     const message = (data && data.error) || `Error ${res.status}`;
-    throw new Error(message);
+    // Modo mantenimiento (Admin → Configuración): el Layout escucha este
+    // evento y muestra la pantalla de mantenimiento en vez de la página.
+    if (res.status === 503 && data && data.codigo === 'MANTENIMIENTO') {
+      window.dispatchEvent(new CustomEvent('app:mantenimiento', { detail: { mensaje: data.error } }));
+    }
+    const err = new Error(message);
+    err.status = res.status;
+    err.codigo = data && data.codigo;
+    throw err;
   }
   return data;
 }
@@ -67,7 +75,36 @@ async function requestBlob(path, { method = 'POST', body, auth = true } = {}) {
   return res.blob();
 }
 
+// GET de un archivo privado (capturas de reportes, adjuntos de tickets,
+// PDFs, backups): no se puede usar un <img src> / <a href> directo porque
+// el navegador no manda el header Authorization — se baja como blob con el
+// token y se muestra con un object URL.
+async function getBlob(path, { tokenKey } = {}) {
+  const headers = {};
+  const token = getToken(tokenKey);
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}${path}`, { headers });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Error ${res.status}`);
+  }
+  return res.blob();
+}
+
+// Descarga un blob como archivo con el nombre dado.
+export function guardarBlob(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 export const api = {
+  getBlob,
   get: (path, opts) => request(path, { ...opts, method: 'GET' }),
   post: (path, body, opts) => request(path, { ...opts, method: 'POST', body }),
   put: (path, body, opts) => request(path, { ...opts, method: 'PUT', body }),

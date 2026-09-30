@@ -9,6 +9,7 @@ const env = require('../config/env');
 const userModel = require('../models/user.model');
 const CATEGORIAS_CURSO = require('../config/categorias');
 const { asyncHandler, AppError } = require('../middlewares/error.middleware');
+const ofertasService = require('../services/ofertas.service');
 
 function formatPrecio(precio) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(precio);
@@ -19,7 +20,8 @@ function formatPrecio(precio) {
 // tiene que aparecer acá (ver estadosCurso.js).
 const listCourses = asyncHandler(async (req, res) => {
   const { categoria } = req.query;
-  const courses = await courseModel.listAll({ categoria, estado: 'subido' });
+  // Con el precio de hoy (descuento de una oferta vigente, si hay).
+  const courses = await ofertasService.aplicarPrecios(await courseModel.listAll({ categoria, estado: 'subido' }));
   res.json({ courses });
 });
 
@@ -44,8 +46,9 @@ const myTeachingCourses = asyncHandler(async (req, res) => {
 // SIN video_url ni nada del contenido en sí, para que quien todavía no
 // compró pueda ver qué incluye el curso sin poder mirarlo gratis.
 const getCourse = asyncHandler(async (req, res) => {
-  const course = await courseModel.findByIdConProfesor(req.params.id);
-  if (!course) throw new AppError('Curso no encontrado', 404);
+  const encontrado = await courseModel.findByIdConProfesor(req.params.id);
+  if (!encontrado) throw new AppError('Curso no encontrado', 404);
+  const [course] = await ofertasService.aplicarPrecios([encontrado]);
 
   const capitulos = await courseChapterModel.listByCourse(course.id);
   const unidadesMap = new Map();
@@ -92,8 +95,10 @@ const createCourse = asyncHandler(async (req, res) => {
 // /api/payments/retorno confirman el pago (ver checkout.service.js).
 const enroll = asyncHandler(async (req, res) => {
   const courseId = Number(req.params.id);
-  const course = await courseModel.findById(courseId);
-  if (!course) throw new AppError('Curso no encontrado', 404);
+  const encontrado = await courseModel.findById(courseId);
+  if (!encontrado) throw new AppError('Curso no encontrado', 404);
+  // Se cobra el precio de hoy: si hay una oferta vigente para el curso, con su descuento.
+  const [course] = await ofertasService.aplicarPrecios([encontrado]);
   if (course.estado !== 'subido') {
     throw new AppError('Este curso no está disponible para la compra', 400);
   }

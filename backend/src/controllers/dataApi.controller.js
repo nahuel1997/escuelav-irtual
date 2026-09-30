@@ -8,7 +8,8 @@ const db = require('../config/db');
 const apiClientModel = require('../models/apiClient.model');
 const apiUsageLogModel = require('../models/apiUsageLog.model');
 const dataCatalogService = require('../services/dataCatalog.service');
-const { asyncHandler, AppError } = require('../middlewares/error.middleware');
+const { asyncHandler } = require('../middlewares/error.middleware');
+const { errorApi } = require('../services/apiErrores.service');
 
 const LIMITE_DEFAULT = 50;
 const LIMITE_MAXIMO = 200;
@@ -20,7 +21,7 @@ const getDatos = asyncHandler(async (req, res) => {
 
   const columnasPermitidas = await apiClientModel.permisoPara(clientId, tabla);
   if (!columnasPermitidas || columnasPermitidas.length === 0) {
-    throw new AppError('No tenés acceso a esta tabla', 403);
+    throw await errorApi('TABLA_SIN_PERMISO', { status: 403, porDefecto: 'No tenés acceso a esta tabla' });
   }
 
   // Intersección defensiva contra las columnas reales de HOY: si la
@@ -30,7 +31,7 @@ const getDatos = asyncHandler(async (req, res) => {
   const columnasReales = await dataCatalogService.listarColumnas(tabla);
   const columnas = columnasPermitidas.filter((c) => columnasReales.includes(c));
   if (columnas.length === 0) {
-    throw new AppError('Ninguna de las columnas habilitadas existe ya en esta tabla — pedile al admin que revise el acceso', 409);
+    throw await errorApi('COLUMNAS_INEXISTENTES', { status: 409, porDefecto: 'Ninguna de las columnas habilitadas existe ya en esta tabla — pedile al admin que revise el acceso' });
   }
 
   const limit = Math.min(Number(req.query.limit) || LIMITE_DEFAULT, LIMITE_MAXIMO);

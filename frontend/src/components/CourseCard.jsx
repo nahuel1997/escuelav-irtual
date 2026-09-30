@@ -23,7 +23,7 @@ export default function CourseCard({ course, actions }) {
         <Link to={`/tienda/${course.id}`}>{course.titulo}</Link>
       </h3>
       <p className="text-muted" style={{ flex: 1 }}>{course.descripcion}</p>
-      <strong style={{ color: 'var(--color-primary)' }}>{formatPrecio(course.precio)}</strong>
+      <strong style={{ color: 'var(--color-primary)' }}>{course.precio_original ? <><s className="text-muted" style={{ fontWeight: 400, marginRight: 6 }}>{formatPrecio(course.precio_original)}</s>{formatPrecio(course.precio)} <span className="badge badge-danger">-{course.descuento_pct}%</span></> : formatPrecio(course.precio)}</strong>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {actions}
         <Link to={`/tienda/${course.id}`} className="btn btn-black btn-sm">Ver curso</Link>

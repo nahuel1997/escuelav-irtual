@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import Icon from './Icon';
+import { useModoOscuro } from '../hooks/useModoOscuro';
 
 // Header superior para alumno/profesor logueados — angosto, sin el menú
 // de navegación (que ahora vive en el Sidebar de al lado, ver Layout.jsx):
@@ -11,6 +12,7 @@ export default function AppTopbar() {
   const { user, logout } = useAuth();
   const { items, toggleDrawer } = useCart();
   const navigate = useNavigate();
+  const modoOscuro = useModoOscuro();
 
   function handleLogout() {
     logout();
@@ -50,6 +52,17 @@ export default function AppTopbar() {
         <Link to="/perfil" className="text-muted" style={{ fontSize: '0.9rem' }}>
           {user.nombre} <span className="badge">{user.rol}</span>
         </Link>
+
+        {modoOscuro.disponible && (
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={modoOscuro.alternar}
+            title={modoOscuro.activo ? 'Pasar a modo claro' : 'Pasar a modo oscuro'}
+            aria-pressed={modoOscuro.activo}
+          >
+            {modoOscuro.activo ? '☀ Claro' : '☾ Oscuro'}
+          </button>
+        )}
 
         <button className="btn btn-outline btn-sm" onClick={handleLogout}>Cerrar sesión</button>
       </div>

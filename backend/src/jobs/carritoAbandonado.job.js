@@ -2,6 +2,7 @@
 // de "cuánto tiempo sin actividad cuenta como abandonado" es configurable
 // desde el backoffice (app_settings.horas_carrito_abandonado).
 const cartModel = require('../models/cart.model');
+const { paraSql } = require('../utils/sqlFecha');
 const appSettingModel = require('../models/appSetting.model');
 const mailService = require('../services/mail.service');
 const env = require('../config/env');
@@ -12,7 +13,9 @@ function formatPrecio(precio) {
 
 async function correrJobCarritoAbandonado() {
   const horas = Number(await appSettingModel.getValor('horas_carrito_abandonado', 24));
-  const umbralFecha = new Date(Date.now() - horas * 60 * 60 * 1000);
+  const umbralFecha = paraSql(new Date(Date.now() - horas * 60 * 60 * 1000));
+  // paraSql: en SQLite un Date se compara como número contra columnas de texto y el
+  // filtro nunca daba verdadero — el mail no salía nunca (ver utils/sqlFecha.js).
   const candidatos = await cartModel.listCandidatosAAbandono(umbralFecha);
 
   for (const c of candidatos) {

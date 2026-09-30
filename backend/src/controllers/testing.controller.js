@@ -44,6 +44,16 @@ const SUITES = [
   { id: 'testingRoutes', label: 'Rutas de este mismo panel de Testing', archivo: 'testingRoutes.test.js' },
   { id: 'curriculumService', label: 'Temario — lógica de desbloqueo (los 3 modos de avance, regla del 80%)', archivo: 'curriculum.service.test.js' },
   { id: 'curriculum', label: 'Temario — endpoints (unidades, capítulos, progreso, comentarios, archivos)', archivo: 'curriculum.test.js' },
+  { id: 'seguridadCuentas', label: 'Seguridad de cuentas (activo, bloqueo, fuerza bruta, IPs bloqueadas)', archivo: 'seguridadCuentas.test.js' },
+  { id: 'alertas', label: 'Alertas (pop-up, historial, recibido)', archivo: 'alertas.test.js' },
+  { id: 'apiSeguridad', label: 'API de datos — bloqueos, fuerza bruta y mensajes de error', archivo: 'apiSeguridad.test.js' },
+  { id: 'errores', label: 'Errores de la app y "Reportar error"', archivo: 'errores.test.js' },
+  { id: 'tickets', label: 'Tickets de soporte y aprobación por link', archivo: 'tickets.test.js' },
+  { id: 'operacion', label: 'Operación (mantenimiento, estado, tráfico, versiones, procesos, tareas, backups)', archivo: 'operacion.test.js' },
+  { id: 'jobs', label: 'Tareas programadas con filtro por fecha', archivo: 'jobs.test.js' },
+  { id: 'panelAdmin', label: 'Panel (menú, pantallas, feriados, tester, manual, logo de mails)', archivo: 'panelAdmin.test.js' },
+  { id: 'reportesYAsistente', label: 'Reportes, encuestas, calificaciones y asistente IA', archivo: 'reportesYAsistente.test.js' },
+  { id: 'marketing', label: 'Marketing (campañas programadas y ofertas en la app)', archivo: 'marketing.test.js' },
 ];
 
 const listSuites = asyncHandler(async (req, res) => {

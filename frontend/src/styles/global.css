@@ -337,6 +337,16 @@ th { color: var(--color-text-muted); font-weight: 600; }
    pantalla + botón para traerlo) en vez de colapsar a íconos, porque acá
    los links son puro texto (16 secciones, sin ícono propio como en
    Sidebar.jsx) — quedarían irreconocibles reducidos a solo un cuadradito. */
+/* Sidebar del panel de admin: queda fija a la altura de la pantalla mientras
+   se scrollea el contenido, con su propio scroll si el menú es largo. En
+   celular la regla de abajo (media query) la pasa a panel desplegable. */
+.admin-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
 .admin-mobile-toggle {
   display: none;
   position: fixed;
@@ -385,4 +395,23 @@ th { color: var(--color-text-muted); font-weight: 600; }
     z-index: 50;
   }
   .admin-main { padding: 80px 20px 32px !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Modo oscuro por inversión de colores (mismo enfoque que DBA24: el sitio
+   tiene muchos colores en línea, así que no se reescribe vista por vista).
+   Se invierte todo el documento y se vuelven a invertir las imágenes y los
+   videos para que se vean normales. Intensidad y contraste se configuran en
+   Admin → Configuración → Modo oscuro (ver hooks/useModoOscuro.js).
+   --------------------------------------------------------------------------- */
+html.modo-oscuro {
+  filter: invert(var(--mo-intensidad, 0.9)) hue-rotate(180deg) contrast(var(--mo-contraste, 0.95));
+  background: #fff;
+}
+html.modo-oscuro img,
+html.modo-oscuro video,
+html.modo-oscuro iframe,
+html.modo-oscuro picture,
+html.modo-oscuro [data-no-invertir] {
+  filter: invert(1) hue-rotate(180deg);
 }

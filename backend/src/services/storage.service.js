@@ -67,4 +67,28 @@ function buildPublicUrl(carpetaNombre, filename) {
   return `/uploads/${carpetaNombre}/${filename}`;
 }
 
-module.exports = { carpeta, nombreUnico, buildPublicUrl };
+// Archivos PRIVADOS (capturas de "Reportar error", adjuntos de tickets,
+// backups): viven fuera de uploads/ — que se sirve como estático, o sea
+// público para cualquiera que adivine la URL — y solo se entregan por un
+// endpoint que chequea permisos (mismo criterio que uploads/reportes-error
+// fuera de public/ en DBA24).
+// Los tests escriben en data/privado-test (se borra al terminar), nunca en
+// la carpeta real.
+const PRIVADO_ROOT = process.env.NODE_ENV === 'test'
+  ? path.join(__dirname, '..', '..', 'data', 'privado-test')
+  : path.join(__dirname, '..', '..', 'privado');
+
+function carpetaPrivada(nombre) {
+  const dir = path.join(PRIVADO_ROOT, nombre);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+// Ruta absoluta de un archivo privado ya guardado. `archivo` sale siempre
+// de la base (lo generó nombreUnico), pero igual se descarta cualquier
+// separador para que nunca pueda salirse de su carpeta.
+function rutaPrivada(nombre, archivo) {
+  return path.join(carpetaPrivada(nombre), path.basename(String(archivo)));
+}
+
+module.exports = { carpeta, nombreUnico, buildPublicUrl, carpetaPrivada, rutaPrivada, PRIVADO_ROOT, UPLOADS_ROOT };

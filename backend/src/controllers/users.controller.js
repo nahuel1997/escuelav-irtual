@@ -8,8 +8,11 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const { nombre, apellido, avatar_url } = req.body;
+  const { nombre, apellido, avatar_url, acepta_publicidad } = req.body;
   await userModel.updateProfile(req.user.id, { nombre, apellido, avatar_url });
+  // Suscribirse o darse de baja de las campañas de publicidad (los mails de
+  // servicio — compras, turnos, tickets — se mandan igual).
+  if (typeof acepta_publicidad === 'boolean') await userModel.setAceptaPublicidad(req.user.id, acepta_publicidad);
   const user = await userModel.findPublicById(req.user.id);
   res.json({ user });
 });

@@ -112,7 +112,7 @@ export default function CartDrawer() {
                 <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.titulo}
                 </p>
-                <p className="text-muted" style={{ margin: '2px 0 0', fontSize: '0.85rem' }}>{formatPrecio(item.precio)}</p>
+                <p className="text-muted" style={{ margin: '2px 0 0', fontSize: '0.85rem' }}>{item.precio_original ? <><s className="text-muted" style={{ fontWeight: 400, marginRight: 6 }}>{formatPrecio(item.precio_original)}</s>{formatPrecio(item.precio)} <span className="badge badge-danger">-{item.descuento_pct}%</span></> : formatPrecio(item.precio)}</p>
               </div>
               <button
                 onClick={() => quitar(item.id)}

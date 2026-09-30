@@ -2,6 +2,22 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { zonaActual } from '../utils/fecha';
+import { useEstadoPublico } from '../hooks/useEstadoPublico';
+
+// Próximos feriados (Admin → Configuración → Feriados): esos días no se
+// pueden pedir turnos.
+function ProximosFeriados() {
+  const estado = useEstadoPublico();
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: zonaActual() }).format(new Date());
+  const proximos = ((estado && estado.feriados && estado.feriados.dias) || []).filter((d) => d.fecha >= hoy).slice(0, 5);
+  if (!proximos.length) return null;
+  return (
+    <div className="alert" style={{ background: 'var(--color-bg-alt)', margin: '12px 0' }}>
+      <strong>Próximos feriados (sin turnos):</strong>{' '}
+      {proximos.map((d) => `${new Date(`${d.fecha}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} (${d.nombre})`).join(' · ')}
+    </div>
+  );
+}
 
 const ESTADO_LABEL = {
   pendiente: 'Pendiente',
@@ -43,6 +59,7 @@ export default function Calendar() {
             : 'Solicitá un horario con un profesor. Queda pendiente hasta que lo confirme.'}
         </p>
 
+        <ProximosFeriados />
         {user.rol === 'profesor' ? <TeacherCalendar /> : <StudentCalendar />}
       </div>
     </section>

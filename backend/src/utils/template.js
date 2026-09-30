@@ -18,4 +18,17 @@ function renderTexto(texto, variables) {
   });
 }
 
-module.exports = { renderTexto };
+// renderTexto NO escapa (hay variables que son fragmentos de HTML armados a
+// propósito). Todo texto que escribe un usuario (un reporte de error, un
+// ticket, el mensaje de un reenvío) pasa por acá antes de meterse en un
+// mail, para que no pueda inyectar HTML/links en el mail de otra persona.
+function escaparHtml(valor) {
+  return String(valor == null ? '' : valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+module.exports = { renderTexto, escaparHtml };

@@ -14,6 +14,7 @@ const checkoutService = require('../services/checkout.service');
 const mailService = require('../services/mail.service');
 const env = require('../config/env');
 const { asyncHandler, AppError } = require('../middlewares/error.middleware');
+const ofertasService = require('../services/ofertas.service');
 
 function formatPrecio(precio) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(precio);
@@ -21,7 +22,7 @@ function formatPrecio(precio) {
 
 const verCarrito = asyncHandler(async (req, res) => {
   const cart = await cartModel.obtenerOCrearActivo(req.user.id);
-  const items = await cartModel.listItems(cart.id);
+  const items = await ofertasService.aplicarPrecios(await cartModel.listItems(cart.id));
   res.json({ cart: { id: cart.id, estado: cart.estado }, items });
 });
 
@@ -38,14 +39,14 @@ const agregarItem = asyncHandler(async (req, res) => {
 
   const cart = await cartModel.obtenerOCrearActivo(req.user.id);
   await cartModel.agregarItem(cart.id, course_id);
-  const items = await cartModel.listItems(cart.id);
+  const items = await ofertasService.aplicarPrecios(await cartModel.listItems(cart.id));
   res.status(201).json({ items });
 });
 
 const quitarItem = asyncHandler(async (req, res) => {
   const cart = await cartModel.obtenerOCrearActivo(req.user.id);
   await cartModel.quitarItem(cart.id, req.params.courseId);
-  const items = await cartModel.listItems(cart.id);
+  const items = await ofertasService.aplicarPrecios(await cartModel.listItems(cart.id));
   res.json({ items });
 });
 
@@ -63,7 +64,8 @@ const quitarItem = asyncHandler(async (req, res) => {
 //     confirma el pago (ver checkout.service.js::finalizarOrden).
 const checkout = asyncHandler(async (req, res) => {
   const cart = await cartModel.obtenerOCrearActivo(req.user.id);
-  const items = await cartModel.listItems(cart.id);
+  // Precios de hoy (con el descuento de una oferta vigente, si hay).
+  const items = await ofertasService.aplicarPrecios(await cartModel.listItems(cart.id));
   if (items.length === 0) throw new AppError('Tu carrito está vacío', 400);
 
   const user = await userModel.findById(req.user.id);

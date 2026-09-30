@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Profile() {
   const { user, setUser } = useAuth();
-  const [form, setForm] = useState({ nombre: user.nombre, apellido: user.apellido });
+  const [form, setForm] = useState({ nombre: user.nombre, apellido: user.apellido, acepta_publicidad: user.acepta_publicidad !== false });
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +49,10 @@ export default function Profile() {
             <label htmlFor="apellido">Apellido</label>
             <input id="apellido" value={form.apellido} onChange={(e) => setForm({ ...form, apellido: e.target.value })} required />
           </div>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '4px 0 16px' }}>
+            <input type="checkbox" checked={form.acepta_publicidad} onChange={(e) => setForm({ ...form, acepta_publicidad: e.target.checked })} />
+            Quiero recibir novedades y promociones por mail
+          </label>
           <button type="submit" className="btn btn-primary" disabled={guardando}>
             {guardando ? 'Guardando…' : 'Guardar cambios'}
           </button>

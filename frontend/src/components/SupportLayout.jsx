@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, Link } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, Link, NavLink } from 'react-router-dom';
 import { useSupportAuth } from '../context/SupportAuthContext';
 import { useContent } from '../hooks/useContent';
 
@@ -9,6 +9,7 @@ import { useContent } from '../hooks/useContent';
 export default function SupportLayout() {
   const { user, logout } = useSupportAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   // No usamos el contenido en sí acá (el panel de soporte no tiene look
   // personalizable) — solo llamamos al hook para que, aunque un agente
   // abra únicamente /soporte en la pestaña, la zona horaria configurada
@@ -24,8 +25,22 @@ export default function SupportLayout() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-alt)' }}>
       <header style={{ background: 'var(--color-dark-bg)', color: '#fff', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem' }}>
-          Escuela Online <span style={{ color: 'var(--color-accent)', fontWeight: 600, fontSize: '0.85rem' }}>· Panel de soporte</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem' }}>
+            Escuela Online <span style={{ color: 'var(--color-accent)', fontWeight: 600, fontSize: '0.85rem' }}>· Panel de soporte</span>
+          </div>
+          <nav style={{ display: 'flex', gap: 6 }}>
+            {[['/soporte', 'Chats'], ['/soporte/tickets', 'Tickets'], ['/soporte/manual', 'Manual']].map(([to, label]) => (
+              <NavLink
+                key={to}
+                to={to}
+                end
+                style={({ isActive }) => ({ padding: '6px 12px', borderRadius: 8, color: isActive ? '#fff' : '#b7c2cf', background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent', textDecoration: 'none', fontSize: '0.9rem' })}
+              >
+                {label}
+              </NavLink>
+            ))}
+          </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span style={{ color: '#b7c2cf', fontSize: '0.85rem' }}>{user?.nombre} {user?.apellido}</span>
@@ -35,7 +50,9 @@ export default function SupportLayout() {
           </button>
         </div>
       </header>
-      <main style={{ flex: 1, padding: '24px 28px', overflow: 'hidden', display: 'flex' }}>
+      {/* La bandeja de chats ocupa el alto justo (overflow hidden); los
+          tickets son una página común que scrollea. */}
+      <main style={{ flex: 1, padding: '24px 28px', overflow: pathname === '/soporte' ? 'hidden' : 'auto', display: 'flex' }}>
         <Outlet />
       </main>
     </div>

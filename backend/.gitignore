@@ -5,3 +5,4 @@ dist/
 data/
 uploads/*
 !uploads/.gitkeep
+privado/

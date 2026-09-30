@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ESTADO_CURSO_INFO } from '../config/estadosCurso';
 import PagoBanner from '../components/PagoBanner';
+import BotonPdfProceso from '../components/BotonPdfProceso';
 
 // Para un alumno: cursos en los que está inscripto (viene de /courses/mine).
 // Para un profesor: cursos que dicta (viene de /courses filtrando por él,
@@ -44,6 +45,10 @@ export default function MyCourses() {
     <section className="section">
       <div className="container">
         <h1>Mis cursos</h1>
+        {/* Avance en PDF (alumno: el suyo; profesor: el de sus alumnos), en segundo plano. */}
+        <div style={{ margin: '8px 0 16px' }}>
+          <BotonPdfProceso tipo="mi_progreso" etiqueta={user?.rol === 'profesor' ? 'Avance de mis alumnos (PDF)' : 'Mi progreso (PDF)'} />
+        </div>
         <PagoBanner />
         {error && <div className="alert alert-error">{error}</div>}
 

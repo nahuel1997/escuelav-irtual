@@ -31,12 +31,22 @@ import IntegracionesIA from './pages/integracionesIA/IntegracionesIA';
 import Gpts from './pages/Gpts';
 import VerifyEmail from './pages/VerifyEmail';
 import LtiLanding from './pages/LtiLanding';
+import Alertas from './pages/Alertas';
+import ReportarError from './pages/ReportarError';
+import { MisConsultas, ConsultaDetalle } from './pages/MisConsultas';
+import Aprobacion from './pages/Aprobacion';
+import Novedades from './pages/Novedades';
+import Manual from './pages/Manual';
+import Encuestas from './pages/Encuestas';
+import BajaPublicidad from './pages/BajaPublicidad';
 import NotFound from './pages/NotFound';
 
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminTeachers from './pages/admin/AdminTeachers';
 import AdminUsers from './pages/admin/AdminUsers';
+import AdminBloqueados from './pages/admin/AdminBloqueados';
+import AdminAlertas from './pages/admin/AdminAlertas';
 import AdminApis from './pages/admin/AdminApis';
 import AdminCourses from './pages/admin/AdminCourses';
 import AdminCourseCurriculum from './pages/admin/AdminCourseCurriculum';
@@ -54,6 +64,23 @@ import AdminChats from './pages/admin/AdminChats';
 import AdminLti from './pages/admin/AdminLti';
 import AdminCvTemplates from './pages/admin/AdminCvTemplates';
 import AdminAiTemplates from './pages/admin/AdminAiTemplates';
+import AdminTickets from './pages/admin/AdminTickets';
+import AdminConfiguracion from './pages/admin/AdminConfiguracion';
+import AdminEstadoApp from './pages/admin/AdminEstadoApp';
+import AdminTrafico from './pages/admin/AdminTrafico';
+import AdminVersiones from './pages/admin/AdminVersiones';
+import AdminProcesos from './pages/admin/AdminProcesos';
+import AdminSistema from './pages/admin/AdminSistema';
+import AdminMenu from './pages/admin/AdminMenu';
+import AdminPantallas from './pages/admin/AdminPantallas';
+import AdminTester from './pages/admin/AdminTester';
+import AdminManual from './pages/admin/AdminManual';
+import AdminReportes from './pages/admin/AdminReportes';
+import AdminEncuestas from './pages/admin/AdminEncuestas';
+import AdminCalificaciones from './pages/admin/AdminCalificaciones';
+import AdminAsistente from './pages/admin/AdminAsistente';
+import AdminCampanias from './pages/admin/AdminCampanias';
+import AdminOfertas from './pages/admin/AdminOfertas';
 
 import SupportLogin from './pages/support/SupportLogin';
 import SupportInbox from './pages/support/SupportInbox';
@@ -78,6 +105,10 @@ export default function App() {
         {/* Aterrizaje de un launch de LTI (viene de un LMS externo, todavía
             sin sesión en esta app — ver LtiLanding.jsx) */}
         <Route path="/lti/entrando" element={<LtiLanding />} />
+        {/* Aprobación de un pedido de soporte (link por mail, sin login). */}
+        <Route path="/aprobacion/:token" element={<Aprobacion />} />
+        {/* Baja de publicidad (link al pie de cada campaña, sin login). */}
+        <Route path="/baja-publicidad/:token" element={<BajaPublicidad />} />
 
         {/* Privadas: cualquier usuario logueado */}
         <Route element={<PrivateRoute />}>
@@ -102,11 +133,18 @@ export default function App() {
           <Route path="/logros" element={<Achievements />} />
           <Route path="/integraciones-ia" element={<IntegracionesIA />} />
           <Route path="/gpts" element={<Gpts />} />
+          <Route path="/encuestas" element={<Encuestas />} />
         </Route>
 
         {/* Privadas: alumno y profesor (no admin, que tiene su propia vista
             de calendario dentro del panel de administración) */}
         <Route element={<PrivateRoute roles={['alumno', 'profesor']} />}>
+          <Route path="/alertas" element={<Alertas />} />
+          <Route path="/reportar-error" element={<ReportarError />} />
+          <Route path="/mis-consultas" element={<MisConsultas />} />
+          <Route path="/mis-consultas/:id" element={<ConsultaDetalle />} />
+          <Route path="/novedades" element={<Novedades />} />
+          <Route path="/manual" element={<Manual />} />
           <Route path="/calendario" element={<Calendar />} />
           <Route path="/clases-en-vivo" element={<LiveClasses />} />
           <Route path="/clases-en-vivo/:id/sala" element={<LiveClassRoom />} />
@@ -123,6 +161,8 @@ export default function App() {
           <Route path="/admin-panel" element={<AdminDashboard />} />
           <Route path="/admin-panel/profesores" element={<AdminTeachers />} />
           <Route path="/admin-panel/usuarios" element={<AdminUsers />} />
+          <Route path="/admin-panel/bloqueados" element={<AdminBloqueados />} />
+          <Route path="/admin-panel/alertas" element={<AdminAlertas />} />
           <Route path="/admin-panel/apis" element={<AdminApis />} />
           <Route path="/admin-panel/cursos" element={<AdminCourses />} />
           <Route path="/admin-panel/cursos/:id/temario" element={<AdminCourseCurriculum />} />
@@ -137,6 +177,23 @@ export default function App() {
           <Route path="/admin-panel/cv-ia" element={<AdminCvTemplates />} />
           <Route path="/admin-panel/ai-integraciones" element={<AdminAiTemplates />} />
           <Route path="/admin-panel/errores" element={<AdminErrors />} />
+          <Route path="/admin-panel/tickets" element={<AdminTickets />} />
+          <Route path="/admin-panel/configuracion" element={<AdminConfiguracion />} />
+          <Route path="/admin-panel/estado-app" element={<AdminEstadoApp />} />
+          <Route path="/admin-panel/trafico" element={<AdminTrafico />} />
+          <Route path="/admin-panel/versiones" element={<AdminVersiones />} />
+          <Route path="/admin-panel/procesos" element={<AdminProcesos />} />
+          <Route path="/admin-panel/sistema" element={<AdminSistema />} />
+          <Route path="/admin-panel/menu" element={<AdminMenu />} />
+          <Route path="/admin-panel/pantallas" element={<AdminPantallas />} />
+          <Route path="/admin-panel/tester" element={<AdminTester />} />
+          <Route path="/admin-panel/manual" element={<AdminManual />} />
+          <Route path="/admin-panel/reportes" element={<AdminReportes />} />
+          <Route path="/admin-panel/encuestas" element={<AdminEncuestas />} />
+          <Route path="/admin-panel/calificaciones" element={<AdminCalificaciones />} />
+          <Route path="/admin-panel/asistente" element={<AdminAsistente />} />
+          <Route path="/admin-panel/campanias" element={<AdminCampanias />} />
+          <Route path="/admin-panel/ofertas" element={<AdminOfertas />} />
           <Route path="/admin-panel/logins" element={<AdminLogins />} />
           <Route path="/admin-panel/testing" element={<AdminTesting />} />
           <Route path="/admin-panel/testing/pagos" element={<AdminTestPagos />} />
@@ -149,6 +206,8 @@ export default function App() {
       <Route element={<SupportRoute />}>
         <Route element={<SupportLayout />}>
           <Route path="/soporte" element={<SupportInbox />} />
+          <Route path="/soporte/tickets" element={<AdminTickets />} />
+          <Route path="/soporte/manual" element={<Manual />} />
         </Route>
       </Route>
     </Routes>

@@ -1,31 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { useContent } from '../hooks/useContent';
 import { useFavicon } from '../hooks/useFavicon';
-import { API_ORIGIN } from '../api/client';
+import { api, API_ORIGIN } from '../api/client';
+import { armarMenu } from '../config/menuAdmin';
+import { useModoOscuro } from '../hooks/useModoOscuro';
 
-const links = [
-  { to: '/admin-panel', label: 'Dashboard', end: true },
-  { to: '/admin-panel/cursos', label: 'Cursos' },
-  { to: '/admin-panel/profesores', label: 'Profesores' },
-  { to: '/admin-panel/usuarios', label: 'Usuarios' },
-  { to: '/admin-panel/contenido', label: 'Contenido del sitio' },
-  { to: '/admin-panel/calendario', label: 'Calendario' },
-  { to: '/admin-panel/clases-en-vivo', label: 'Clases en vivo' },
-  { to: '/admin-panel/mails', label: 'Mails' },
-  { to: '/admin-panel/pagos', label: 'Pagos' },
-  { to: '/admin-panel/soporte', label: 'Agentes de soporte' },
-  { to: '/admin-panel/chats', label: 'Chats' },
-  { to: '/admin-panel/errores', label: 'Errores' },
-  { to: '/admin-panel/logins', label: 'Sesiones' },
-  { to: '/admin-panel/apis', label: 'APIs' },
-  { to: '/admin-panel/testing', label: 'Testing' },
-  { to: '/admin-panel/testing/pagos', label: 'Test Pagos' },
-  { to: '/admin-panel/lti', label: 'Integraciones LMS (LTI)' },
-  { to: '/admin-panel/cv-ia', label: 'CV para IA' },
-  { to: '/admin-panel/ai-integraciones', label: 'Integraciones IA' },
-];
+// Contadores del menú (como los de "Por validar" y "Alerta de errores" de
+// DBA24): reportes de error nuevos y tickets activos sin asignar.
+function useContadores() {
+  const [contadores, setContadores] = useState({});
+  useEffect(() => {
+    let vivo = true;
+    const cargar = () => Promise.all([
+      api.get('/admin/reportes-error/resumen').then((d) => d.nuevos).catch(() => 0),
+      api.get('/tickets/gestion/tablero').then((d) => d.sinAsignar).catch(() => 0),
+    ]).then(([errores, tickets]) => vivo && setContadores({ errores, tickets }));
+    cargar();
+    const t = setInterval(cargar, 60000);
+    return () => { vivo = false; clearInterval(t); };
+  }, []);
+  return contadores;
+}
+
 
 // Layout propio del backoffice: sidebar oscuro fijo + contenido a la
 // derecha. Deliberadamente distinto del Navbar/Footer públicos para que
@@ -51,6 +49,17 @@ export default function AdminLayout() {
   // global.css) y se abre con este botón; en desktop el CSS lo ignora y
   // el sidebar se comporta exactamente como antes.
   const [menuAbierto, setMenuAbierto] = useState(false);
+  // Menú configurable (Menú del panel) + contadores + modo oscuro.
+  const [menuGuardado, setMenuGuardado] = useState(undefined);
+  useEffect(() => {
+    const cargar = () => api.get('/admin/menu').then((d) => setMenuGuardado(d.menu)).catch(() => setMenuGuardado(null));
+    cargar();
+    window.addEventListener('admin:menu-cambiado', cargar);
+    return () => window.removeEventListener('admin:menu-cambiado', cargar);
+  }, []);
+  const secciones = armarMenu(menuGuardado);
+  const contadores = useContadores();
+  const modoOscuro = useModoOscuro();
 
   function handleLogout() {
     logout();
@@ -93,30 +102,48 @@ export default function AdminLayout() {
           )}
           <span style={{ color: 'var(--color-accent)', fontSize: '0.85rem' }}>Panel de admin</span>
         </div>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.end}
-              onClick={cerrarMenu}
-              style={({ isActive }) => ({
-                padding: '10px 12px',
-                borderRadius: 8,
-                color: isActive ? '#fff' : '#b7c2cf',
-                background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
-                textDecoration: 'none',
-                fontSize: '0.92rem',
-              })}
-            >
-              {l.label}
-            </NavLink>
-          ))}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {secciones.map((sec) => {
+            const visibles = sec.items.filter((l) => l.visible);
+            if (!visibles.length) return null;
+            return (
+              <div key={sec.nombre} style={{ marginBottom: 10 }}>
+                <div style={{ color: '#8b97a5', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '6px 12px 2px' }}>{sec.nombre}</div>
+                {visibles.map((l) => (
+                  <NavLink
+                    key={l.ruta}
+                    to={l.ruta}
+                    end
+                    onClick={cerrarMenu}
+                    style={({ isActive }) => ({
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      color: isActive ? '#fff' : '#b7c2cf',
+                      background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                    })}
+                  >
+                    <span>{l.titulo}</span>
+                    {l.contador && contadores[l.contador] > 0 && (
+                      <span style={{ background: 'var(--color-accent)', color: '#000', borderRadius: 999, fontSize: '0.7rem', fontWeight: 700, padding: '1px 7px' }}>{contadores[l.contador]}</span>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
         </nav>
 
         <div style={{ marginTop: 40, borderTop: '1px solid rgba(255,255,255,0.12)', paddingTop: 16 }}>
           <p style={{ color: '#b7c2cf', fontSize: '0.85rem', margin: 0 }}>{user?.nombre} {user?.apellido}</p>
           <Link to="/" style={{ fontSize: '0.8rem', color: '#8b97a5', display: 'block', marginTop: 8 }}>← Volver al sitio</Link>
+          {modoOscuro.disponible && (
+            <button className="btn btn-outline btn-sm" style={{ marginTop: 10, marginRight: 6, borderColor: '#455568', color: '#fff' }} onClick={modoOscuro.alternar} aria-pressed={modoOscuro.activo}>
+              {modoOscuro.activo ? '☀ Claro' : '☾ Oscuro'}
+            </button>
+          )}
           <button className="btn btn-outline btn-sm" style={{ marginTop: 10, borderColor: '#455568', color: '#fff' }} onClick={handleLogout}>
             Cerrar sesión
           </button>

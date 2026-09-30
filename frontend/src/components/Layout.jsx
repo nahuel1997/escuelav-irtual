@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
@@ -5,6 +6,13 @@ import AppTopbar from './AppTopbar';
 import Footer from './Footer';
 import ChatWidget from './ChatWidget';
 import CartDrawer from './CartDrawer';
+import AlertaPopup from './AlertaPopup';
+import Mantenimiento from './Mantenimiento';
+import OfertasEnApp from './OfertasEnApp';
+import { useEstadoPublico } from '../hooks/useEstadoPublico';
+import { registrarVista } from '../utils/trafico';
+import { usePantallas } from '../hooks/usePantallas';
+import { useModoOscuro } from '../hooks/useModoOscuro';
 import { useAuth } from '../context/AuthContext';
 import { useContent } from '../hooks/useContent';
 import { useFonts } from '../hooks/useFonts';
@@ -20,7 +28,7 @@ export default function Layout() {
   useTheme(values);
   useFavicon(values);
 
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   // Apenas hay un alumno o profesor logueado, el menú pasa del header
   // horizontal (Navbar) a una sidebar fija a la izquierda (Sidebar,
   // colapsable) — mismo criterio de "área con menú propio" que ya usa
@@ -36,6 +44,38 @@ export default function Layout() {
   // nada ahí. Se detecta por ruta en vez de agregar una prop porque
   // Layout.jsx es el único lugar que decide si hay Footer o no.
   const { pathname } = useLocation();
+
+  // Páginas vistas para Admin → Tráfico.
+  useEffect(() => { registrarVista(pathname); }, [pathname]);
+
+  // Modo mantenimiento por rol (Admin → Configuración): se sabe por el
+  // estado público o porque la API respondió 503 MANTENIMIENTO.
+  const estadoPublico = useEstadoPublico();
+  const [mantenimientoApi, setMantenimientoApi] = useState(null);
+  useEffect(() => {
+    const alRecibir = (e) => setMantenimientoApi(e.detail || {});
+    window.addEventListener('app:mantenimiento', alRecibir);
+    return () => window.removeEventListener('app:mantenimiento', alRecibir);
+  }, []);
+  const mantConfig = estadoPublico && estadoPublico.mantenimiento;
+  const mantVigente = user && mantConfig && mantConfig[user.rol] && (!mantConfig.hasta || new Date(mantConfig.hasta) > new Date());
+  const mantenimiento = user ? (mantVigente ? mantConfig : mantenimientoApi) : null;
+  // Modo oscuro (preferencia de cada usuario) y habilitación de pantallas.
+  useModoOscuro();
+  const { restriccion } = usePantallas(user);
+  const pantallaCerrada = restriccion(pathname);
+  let contenido = <Outlet />;
+  if (mantenimiento) contenido = <Mantenimiento mensaje={mantenimiento.mensaje} hasta={mantenimiento.hasta} onSalir={logout} />;
+  else if (pantallaCerrada) {
+    contenido = (
+      <section className="section text-center" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center' }}>
+        <div className="container">
+          <h1>{pantallaCerrada.titulo}</h1>
+          <p className="text-muted" style={{ whiteSpace: 'pre-wrap' }}>{pantallaCerrada.mensaje}</p>
+        </div>
+      </section>
+    );
+  }
   const sinFooter = /^\/classroom\/[^/]+\/unidades\/[^/]+\/capitulos\/[^/]+/.test(pathname)
     || /^\/clases-en-vivo\/[^/]+\/sala/.test(pathname);
 
@@ -44,23 +84,27 @@ export default function Layout() {
       <div style={{ display: 'flex', minHeight: '100vh' }}>
         <Sidebar user={user} />
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Ofertas en la app (barra / banner / pop-up con cuenta regresiva). */}
+          <OfertasEnApp />
           <AppTopbar />
           <main style={{ flex: 1 }}>
-            <Outlet />
+            {contenido}
           </main>
           {!sinFooter && <Footer />}
         </div>
         <ChatWidget />
         <CartDrawer />
+        <AlertaPopup />
       </div>
     );
   }
 
   return (
     <>
+      <OfertasEnApp />
       <Navbar />
       <main>
-        <Outlet />
+        {contenido}
       </main>
       {!sinFooter && <Footer />}
       {/* Chat de contacto flotante — solo se muestra si hay un alumno o
@@ -72,6 +116,7 @@ export default function Layout() {
           cualquier página sin perder el estado; solo se renderiza para
           alumnos (ver adentro del componente). */}
       <CartDrawer />
+      <AlertaPopup />
     </>
   );
 }
