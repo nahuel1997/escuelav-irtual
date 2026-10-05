@@ -12,6 +12,19 @@ términos y condiciones, un creador de CV en PDF, un motor de mails
 transaccionales y de campaña administrable desde el backoffice, y un chat
 de soporte en vivo (WebSockets) con su propio panel de agentes.
 
+Además tiene un **backoffice completo** (portado del de DBA24): seguridad
+de cuentas con fuerza bruta e IPs bloqueadas, registro de errores del
+servidor y del navegador, "Reportar error" para los usuarios, tickets de
+soporte con aprobación por link, modo mantenimiento, estado de la app,
+tráfico, procesos en segundo plano, tareas programadas configurables,
+backups y actualizaciones desde el panel, menú configurable, habilitación
+de pantallas, tester, modo oscuro, manual por rol, reportes en PDF con
+reenvío por mail, encuestas de satisfacción, calificaciones internas de
+profesores, un **asistente IA** (Claude) para consultar los datos y
+**marketing**: campañas de mail programadas con métricas y baja, y ofertas
+dentro del sitio con cuenta regresiva y descuento real. Todo está descripto
+en "Backoffice ampliado" y "Marketing" más abajo.
+
 Monorepo con dos proyectos independientes:
 
 ```
@@ -64,7 +77,16 @@ escuela-app/
   (`express-rate-limit`), el server no arranca en producción si quedó el
   `JWT_SECRET` por defecto, y el login no distingue "no existe la cuenta"
   de "contraseña incorrecta" (mismo mensaje genérico) para no permitir
-  enumerar emails registrados.
+  enumerar emails registrados. Además: fuerza bruta escalonada que bloquea
+  la IP (nunca la cuenta), IPs bloqueadas antes de cualquier ruta, límites
+  por usuario en escrituras, PDFs y mails, archivos privados fuera de
+  `uploads/` y listas blancas para Backups/Actualizaciones — ver
+  "Seguridad de cuentas" y "Backoffice ampliado".
+- **Asistente IA del panel:** SDK oficial de Anthropic
+  (`@anthropic-ai/sdk`), herramientas de solo lectura — ver "Asistente IA".
+- **PDFs del backoffice:** pdfkit (sin navegador), en
+  `backend/src/utils/pdfReporte.js`; los largos corren como procesos en
+  segundo plano con número de seguimiento.
 
 ## Instalación
 
@@ -161,6 +183,16 @@ git push
 | Profesor  | profesora@escuela.demo   | 123456     |
 | Alumno    | alumno@escuela.demo      | 123456     |
 
+| Rol | Dónde se entra |
+|---|---|
+| Admin | http://localhost:3500/admin-panel/ingresar |
+| Profesor y alumno | http://localhost:3500/ingresar |
+| Soporte | http://localhost:3500/soporte/ingresar (no hay cuenta de soporte en el seed: se crea desde Admin → Agentes de soporte) |
+
+Para probar la app como otro rol sin tocar estas cuentas, usá **Admin →
+Tester**: crea una cuenta de prueba (`es_prueba`) y abre el sitio con esa
+sesión (ver "Tester").
+
 El registro público (`/registrarme`) solo crea cuentas de **alumno**. Las
 cuentas de profesor, de admin y de soporte las crea un administrador desde
 `/admin-panel/profesores` / `/admin-panel/soporte` (o, para el primer
@@ -240,6 +272,18 @@ PAYPAL_MODE=sandbox         # sandbox (no cobra nada real) | live
 # cuenta ni configuración para arrancar. Cambiar esto (a un Jitsi propio,
 # self-hosted) no requiere tocar código, ni backend ni frontend.
 JITSI_DOMAIN=meet.jit.si
+
+# --- Errores y soporte (ver "Backoffice ampliado") ---
+# Casilla a la que avisar cada vez que alguien usa "Reportar error" y cada
+# ticket nuevo. Vacías = solo el aviso dentro del panel (contadores del menú).
+ALERTA_ERRORES_MAIL=
+SOPORTE_AVISO_MAIL=
+
+# --- Asistente IA del panel (ver "Asistente IA") ---
+# Sin la clave, el asistente avisa que no está configurado; el resto anda igual.
+ANTHROPIC_API_KEY=
+ASISTENTE_MODELO=claude-opus-5-5
+ASISTENTE_ESFUERZO=medium   # low | medium | high
 ```
 
 **Importante:** si `NODE_ENV=production` y `JWT_SECRET` quedó en el valor
@@ -281,10 +325,24 @@ backend/src/
 ├─ middlewares/             # auth (JWT + roles), errores, upload (multer)
 ├─ models/                 # acceso a datos (una capa fina sobre knex)
 ├─ services/                # payments.service.js (habla con Mercado Pago/PayPal), checkout.service.js (orquesta una orden real, ver "Pagos reales"), cv.service.js, storage.service.js, mail.service.js
-├─ jobs/                    # tareas programadas (node-cron): carrito abandonado, inactividad, recordatorio de turno
+│  ├─ procesos/             # cola de procesos en segundo plano (P-000123) + tipos/ (un archivo por tipo de proceso)
+│  ├─ asistente/            # asistente IA del panel: bucle con Claude + herramientas de solo lectura
+│  ├─ erroresApp.service.js # registro de errores agrupado (servidor + navegador)
+│  ├─ metricas.service.js   # estado de la app (requests, latencia, event loop, test de velocidad)
+│  ├─ campanias.service.js  # campañas de mail programadas (segmentos, envío, aperturas, clicks, baja)
+│  ├─ ofertas.service.js    # ofertas en la app + precio con descuento vigente
+│  ├─ reportes.service.js   # reportes (ventas, inscripciones, progreso, profesores, encuestas) y su PDF
+│  └─ …                     # config, mantenimiento, pantallas, presencia, feriados, envío de PDF, errores de la API
+├─ jobs/                    # tareas programadas configurables (node-cron + jobs_config): turnos, carrito, inactividad, métricas, limpieza, campañas
 ├─ realtime/                # chatSocket.js (chat de soporte) + liveClassSocket.js (chat de clases en vivo) — Socket.io, misma instancia `io`
-└─ utils/                   # roles.js, contentTipos.js, migrationStatus.js
+└─ utils/                   # roles.js, contentTipos.js, migrationStatus.js, pdfReporte.js, sqlFecha.js (fechas que andan igual en SQLite y Postgres), template.js
 ```
+
+Fuera de `src/`: `backend/privado/` guarda los archivos que **no** son
+públicos (capturas de reportes de error, adjuntos de tickets y de
+calificaciones, PDFs generados por procesos). No se sirve como estático:
+cada archivo se baja por un endpoint que chequea quién lo pide. Está en
+`.gitignore`, igual que `data/` y los `.env`.
 
 ## Funcionalidades y endpoints principales
 
@@ -358,8 +416,8 @@ Dos mecanismos independientes entre sí, gestionables desde "Usuarios" y
   reactive. Pensado para bajas normales (alguien se va, se le da de baja el
   acceso).
 - **Bloqueado** (`users.bloqueado` + `bloqueado_motivo` + `bloqueado_en`):
-  es una medida de seguridad, manual (el admin bloquea con un motivo) o
-  **automática**, por fuerza bruta en el login (ver abajo). Al loguearse con
+  es una medida de seguridad que pone **solo un admin**, a mano y con un
+  motivo. La fuerza bruta del login nunca bloquea cuentas (ver abajo). Al loguearse con
   la contraseña correcta, se revela el bloqueo y el motivo; con la
   contraseña incorrecta, el mensaje es el genérico de siempre — así un
   atacante no puede usar el login para "descubrir" si una cuenta está
@@ -378,14 +436,40 @@ fallando adrede desde varias IPs — ver `loginIntento.model.js`):
 |---|---|
 | 10 | 1 minuto de espera antes de poder reintentar con esa IP+email |
 | 20 | 5 minutos de espera |
-| 21 | **Bloqueo definitivo**: se bloquea la IP entera (corta el login de cualquier cuenta desde ahí) y, si el email es de una cuenta real, también se bloquea esa cuenta (motivo automático) |
+| 21 | **Bloqueo de la IP** (motivo automático): esa conexión no llega a ninguna ruta de la API. **La cuenta no se bloquea**: si no, cualquiera podría dejar afuera a un usuario sabiendo su email (misma decisión que DBA24) |
 
 El chequeo de "¿está en tiempo de espera?" se hace **antes** de `bcrypt`
 (ahorra CPU y no hace falta, porque es sobre la combinación IP+email en
 general, no sobre si la cuenta existe). Un login exitoso borra toda la
 racha de fallos acumulada. Las IPs bloqueadas (a mano o solas) se
 administran en "Bloqueados" → "IPs bloqueadas"; desde ahí también se
-pueden desbloquear.
+pueden desbloquear. Una IP bloqueada se corta **antes de cualquier ruta**
+(`middlewares/ipBloqueada.middleware.js`), no solo en el login. El panel no
+deja bloquear la IP desde la que está conectado el propio admin.
+
+Además del contador de fuerza bruta, `loginLimiter` es un piso volumétrico
+de 60 intentos por minuto por IP (antes cortaba a los 10 cada 15 minutos y
+los tramos de arriba nunca llegaban a aplicarse).
+
+**Historial de intentos de ingreso** (`login_eventos`, Admin → Sesiones →
+"Intentos de ingreso"): cada intento queda registrado con email intentado,
+cuenta (si existe), IP y resultado — exitoso, contraseña incorrecta, en
+espera, IP bloqueada en ese momento, desde IP ya bloqueada, cuenta
+desactivada o cuenta bloqueada. Filtrable por resultado, email/IP y fechas;
+se poda solo a los 90 días.
+
+**Seguridad de la API de datos** (`/api/data`, sistemas externos): IPs y
+usuarios de API bloqueables desde APIs → "Bloqueos", fuerza bruta propia
+por IP + usuario de API (10 → 1 min, 10 más → 5 min, uno más → se bloquea la
+IP, nunca el usuario de API) y los textos de cada error editables desde
+APIs → "Mensajes de error" (cada respuesta lleva `{ error, codigo }`; el
+código y el status HTTP son fijos). Las tablas internas de seguridad,
+operación y marketing nunca aparecen en el catálogo exponible.
+
+**Límites por usuario** (`rateLimit.middleware.js::limiterPorUsuario`):
+escrituras (tickets, encuestas, mensajes), PDFs, reportes de error (10 por
+hora), reenvío de PDFs por mail (15 por hora), procesos, asistente IA,
+backups y "ejecutar ahora" de tareas.
 
 ### Alertas
 
@@ -411,6 +495,11 @@ siquiera si se le mandaron dos alertas seguidas antes de que entrara.
 Restringido a alumno/profesor: un admin no tendría dónde mostrarse el
 pop-up (`AdminLayout` no lo monta) y no tiene sentido para soporte, que
 tiene su propio panel aparte.
+
+**Acuse de recibo:** en "Mis alertas" cada aviso tiene "Marcar como
+recibido" (`POST /api/alertas/:id/recibido`, solo sobre alertas propias);
+el historial del admin muestra para cada destinatario si la vio y si la
+marcó como recibida (columna `alertas.recibido_en`).
 
 **Por qué**: separa "avisar una vez, de forma intrusiva" (pop-up) de
 "queda disponible para volver a leer" (pestaña) — evita que alguien
@@ -1147,6 +1236,257 @@ curso.
   `/token`, `/lineitem/scores` — HTTP real, no mocks de función) y corre
   todo el protocolo contra ella (`tests/lti.test.js`) — ver "Tests".
 
+## Backoffice ampliado
+
+Funciones portadas del backoffice de DBA24 y adaptadas a la escuela. Todo
+lo de admin cuelga de `/api/admin/*` (rutas en `admin.routes.js` y
+`adminOperacion.routes.js`, siempre detrás de `requireAuth` + rol admin).
+
+### Registro de errores (`/admin-panel/errores`)
+
+Cuatro pestañas:
+
+| Pestaña | Qué muestra |
+|---|---|
+| Errores de la app | Errores del **servidor** (todo `console.error`, el error handler, `unhandledRejection`) y del **navegador** (errores de JS y promesas sin `catch`, más las pantallas que rompe React), **agrupados por huella**: mensaje sin números + ruta sin ids + lugar del stack. Un error repetido mil veces es una fila con `veces = 1000`. Detalle con stack, URL, usuario, navegador. Se borran de a uno o todos |
+| Errores de mails | Los envíos fallidos de `mail_log` |
+| Errores alertados | Los reportes de los usuarios ("Reportar error"), con estado nuevo / en revisión / resuelto / descartado y respuesta para el usuario. El menú muestra un contador de los nuevos |
+| Fallas 5xx | El registro histórico de respuestas 5xx, una por ocurrencia |
+
+Cómo: `services/erroresApp.service.js` (AsyncLocalStorage para saber la
+request y el usuario de cada error; escritura en lotes cada 5 s; nunca
+tira). El navegador reporta por `POST /api/app/errores` (logueado, 20 por
+minuto por usuario; `frontend/src/utils/erroresNavegador.js`). Con
+`ALERTA_ERRORES_MAIL` cada reporte nuevo avisa por mail.
+
+### "Reportar error" (`/reportar-error`, alumno y profesor)
+
+Título, descripción y hasta 5 capturas (imágenes de hasta 5 MB). Las
+capturas se guardan en `backend/privado/reportes-error/`: solo las baja el
+autor o un admin, nunca son públicas. El usuario ve el estado y la
+respuesta de sus reportes. Funciona aunque otra sección esté en
+mantenimiento.
+
+### Tickets de soporte
+
+Para lo que necesita seguimiento (el chat en vivo sigue para lo inmediato).
+
+- **Usuario** (`/mis-consultas`): abre una consulta con asunto, tema,
+  mensaje y hasta 5 adjuntos (imágenes, PDF, Word, Excel, TXT, ZIP; 10 MB
+  c/u). Número de seguimiento `T-000123`. Responde en el hilo y puede
+  cerrarla.
+- **Equipo** (admin en `/admin-panel/tickets`, agentes en
+  `/soporte/tickets`): tablero por estado (abierto, en curso, esperando
+  respuesta, resuelto, cerrado) y "sin asignar", filtros por estado,
+  asignado (incluye "asignados a mí"), prioridad, etiqueta y búsqueda por
+  asunto, email o número. En el detalle: estado, prioridad, asignación a un
+  admin o agente, etiquetas con color, respuestas, **notas internas** (el
+  usuario nunca las ve) y adjuntos. Cada cambio queda en el hilo.
+- **Mails:** cada respuesta pública avisa al usuario (`ticket_respuesta`);
+  con `SOPORTE_AVISO_MAIL` el equipo recibe cada ticket nuevo.
+- **Aprobación por link:** desde el ticket se pide una aprobación ("reemitir
+  el certificado…"); le llega al usuario un mail con un link
+  (`/aprobacion/:token`, sin login) para aprobar o rechazar con comentario.
+  Vence a los 7 días, se responde una sola vez y en la base solo se guarda
+  el hash del token. La respuesta queda en el hilo.
+
+### Modo mantenimiento y páginas de error (`/admin-panel/configuracion`)
+
+- **Mantenimiento por rol** (alumnos, profesores, soporte): el rol afectado
+  ve una pantalla de mantenimiento y la API le responde 503 con
+  `codigo: MANTENIMIENTO` (salvo `/api/auth/*`, para poder ver su sesión y
+  salir). Mensaje y "hasta" opcionales: pasada esa hora, se apaga solo. El
+  admin nunca queda afuera.
+- **Páginas de error:** título y texto del 404 y de "algo salió mal".
+- En la misma pantalla: **modo oscuro**, **feriados**, **logo de mails** y
+  **tareas programadas** (abajo).
+
+El frontend lee todo esto de `GET /api/estado-publico` (sin login).
+
+### Estado de la app (`/admin-panel/estado-app`)
+
+Memoria y CPU del proceso, demora del event loop (prom / p99 / máx),
+latencia de la base, requests y latencia de la última hora (por minuto),
+errores 5xx, usuarios en línea, errores distintos de las últimas 24 h,
+procesos en cola, rutas más lentas, tamaño de `data/`, `uploads/` y
+`privado/`, y la serie horaria de los últimos 30 días. **Test de velocidad**
+(consulta a la base, bcrypt, PDF de 2 páginas, escribir y leer 1 MB) y
+**PDF** del estado.
+
+### Tráfico (`/admin-panel/trafico`)
+
+Quién está en línea (actividad en los últimos 5 minutos), páginas vistas
+y personas distintas en un rango, vistas por día y por hora (en hora de
+Argentina), páginas más vistas, por tipo de usuario y por dispositivo,
+últimas vistas, y **PDF**. El frontend registra cada cambio de pantalla
+(`POST /api/app/vista`, también visitantes sin cuenta con un id anónimo).
+El backoffice no cuenta. Se poda a los 90 días.
+
+### Procesos en segundo plano (`/admin-panel/procesos`)
+
+Todo lo largo (PDFs de reportes, reenvío por mail, envío de campañas) se
+encola con número `P-000123` y lo ejecuta un trabajador dentro del mismo
+servidor. El pedido vuelve al instante; el frontend tapa solo esa sección
+con una capa gris con el número y el avance (`useProceso` +
+`ProcesoCapa`) y descarga el archivo al terminar. Tomar un proceso es un
+UPDATE condicional, así que varios procesos del servidor se reparten el
+trabajo sin pisarse; lo que quedó "en curso" por una caída vuelve a la
+cola al arrancar. Tipo nuevo = un archivo en `services/procesos/tipos/`.
+El admin ve todos, con su error, y puede reintentar.
+
+### Tareas programadas (Configuración → Tareas programadas)
+
+| Tarea | Por defecto |
+|---|---|
+| Recordatorio de turnos | cada 5 min |
+| Carrito abandonado | cada 30 min |
+| "Te extrañamos" (inactividad) | todos los días a las 9 |
+| Métricas del servidor | cada hora |
+| Limpieza de registros (tráfico e intentos > 90 días, archivos de procesos > 7 días) | 3:30 |
+| Campañas de mail programadas | cada minuto |
+
+Cada una se activa o desactiva, cambia de horario (cron de 5 campos,
+validado) y se ejecuta a mano; se ve cuándo corrió y cómo le fue.
+`JOBS_HABILITADOS=false` sigue apagando todas. **Corregido:** carrito
+abandonado e inactividad comparaban un `Date` contra columnas de texto en
+SQLite y nunca encontraban a nadie; ahora usan `utils/sqlFecha.js`.
+
+### Backups y actualizaciones (`/admin-panel/sistema`)
+
+Cada sección con su **lista blanca de admins** (tener acceso a una no da
+acceso a la otra; con la lista vacía entra cualquier admin, así alguien
+puede cargar al primero; no te podés quitar si sos el último).
+
+- **Backups:** base de datos (SQLite: copia consistente con la API de
+  backup; Postgres: `pg_dump`) y código del proyecto en `.tar.gz` **sin**
+  `.env`, llaves, `node_modules`, `data/`, `privado/`, `uploads/` ni `.git`.
+- **Actualizaciones:** `git status`, últimos cambios, versiones de Node y
+  npm, migraciones, ver si hay cambios nuevos, y **Actualizar ahora**
+  (fetch, `pull --ff-only`, `npm install`, migraciones y build del
+  frontend), con la salida en vivo. Si la app corre en PM2, reinicia solo
+  su propio proceso.
+
+### Versiones y novedades
+
+Admin → Versiones: registro de cambios (versión, fecha, título, un cambio
+por línea) y PDF. Los usuarios lo ven en `/novedades`, con su PDF en
+segundo plano.
+
+### Herramientas del panel
+
+- **Menú del panel** (`/admin-panel/menu`): el menú de la izquierda está
+  agrupado en secciones (General, Personas, Cursos, Marketing, Soporte,
+  Integraciones, Sistema). Se renombran y reordenan secciones e ítems, se
+  mueven ítems entre secciones y se ocultan. Lo que falte del menú guardado
+  aparece en "Otros"; "Menú del panel" no se puede ocultar. Contadores de
+  tickets sin asignar y de errores alertados nuevos.
+- **Pantallas** (`/admin-panel/pantallas`): cada sección de alumnos y
+  profesores (tienda, mis cursos, calendario, clases en vivo, logros, CV,
+  integraciones IA, agentes, alertas, novedades, encuestas) puede estar
+  activa, en reparación (cartel en vez de la sección y 503 en su API) u
+  oculta del menú; y una sección se bloquea a un usuario puntual con
+  motivo. "Reportar error" y "Mis consultas" nunca se apagan.
+- **Tester** (`/admin-panel/tester`): "Entrar como alumno/profesor de
+  prueba" crea una cuenta nueva marcada `es_prueba`, le abre una sesión
+  real y abre el sitio en otra pestaña. Al cerrar la sesión de prueba la
+  cuenta se desactiva. Observaciones (error, mejora, funciona bien) por
+  pantalla, exportables a PDF. Las cuentas de prueba quedan fuera de
+  reportes y campañas.
+- **Modo oscuro**: por inversión de colores (mismo enfoque que DBA24);
+  cada usuario lo prende desde la barra superior y el admin elige si está
+  disponible, si arranca prendido, la intensidad y el contraste.
+- **Logo de mails**: logo propio o texto sobre un color, disponible en todas
+  las plantillas como `{{encabezado_mail}}`.
+- **Feriados**: no se pueden pedir turnos esos días (se valida en la zona
+  horaria de la escuela) y el calendario muestra los próximos.
+- **Manual** (`/admin-panel/manual`): manual de uso por rol, editable; cada
+  usuario ve el suyo en `/manual` (soporte en `/soporte/manual`).
+
+### Reportes (`/admin-panel/reportes`)
+
+| Reporte | Contenido |
+|---|---|
+| Ventas | órdenes aprobadas, totales por moneda, por medio de pago, por día, cursos más vendidos, inscripciones sin pasarela |
+| Inscripciones | por curso: nuevas en el período, totales, terminadas, ingreso estimado |
+| Progreso de alumnos | por curso y alumno: capítulos completados, avance, terminó |
+| Profesores | cursos, alumnos, clases dadas, turnos atendidos, calificación interna, encuesta de alumnos |
+| Encuestas | promedio y distribución por pregunta, sí/no, comentarios |
+
+Cada uno se ve en pantalla, se descarga en **PDF** o se **manda por mail**
+(proceso `reporte_admin`). Los alumnos bajan "Mi progreso" y los profesores
+"Avance de mis alumnos" desde Mis cursos (proceso `mi_progreso`), también
+con envío por mail. El **reenvío de PDFs por mail** tiene tope de 15 por hora
+por usuario, asunto con prefijo fijo ("Escuela Online — …"), firma de quién
+lo mandó y el mensaje escapado (`envios_pdf`, `envioPdf.service.js`).
+
+### Encuestas de satisfacción
+
+Admin → Encuestas: preguntas de escala 1 a 5, sí/no o texto libre. El alumno
+responde una vez por cada curso en el que está inscripto (`/encuestas`).
+Una pregunta con respuestas no se borra ni cambia de tipo (se desactiva).
+
+### Calificaciones internas (`/admin-panel/calificaciones`)
+
+Puntajes de 1 a 5 por criterio (contenido, claridad, puntualidad, trato,
+cumplimiento, general) con comentario y fecha, adjuntos privados, y
+promedios por criterio. Se cruza con la encuesta de los alumnos. El
+profesor no lo ve.
+
+### Asistente IA (`/admin-panel/asistente`)
+
+Preguntas en castellano sobre la escuela ("¿cómo venimos este mes?",
+"¿qué alumnos van atrasados?"). Usa Claude con el SDK oficial y
+herramientas **de solo lectura**: resumen general, buscar usuarios, ficha
+de usuario, cursos, reportes, tickets, errores recientes y tráfico. No
+puede crear, editar ni borrar nada. Conversaciones guardadas por admin
+(`asistente_conversaciones`) y el historial solo se agrega al final, nunca
+se edita. Si el modelo rechaza una consulta, la API reintenta sola con el
+modelo de respaldo recomendado (`fallbacks: "default"`). Lo que devuelven las
+herramientas se manda a la API de Anthropic. Configuración:
+`ANTHROPIC_API_KEY`, `ASISTENTE_MODELO` (por defecto `claude-opus-5-5`),
+`ASISTENTE_ESFUERZO`. 15 preguntas por minuto por admin.
+
+## Marketing
+
+### Campañas de mail programadas (`/admin-panel/campanias`)
+
+1. El admin arma la campaña: nombre interno, asunto, título, texto (un
+   párrafo por línea), imagen, botón con link y, opcional, una **oferta** de
+   la app (el mail muestra "¡Quedan 3 días!").
+2. Elige el **segmento**: alumnos y/o profesores, solo de una lista de
+   mailing, solo inscriptos en un curso, solo quienes todavía no compraron.
+   Ve en el momento cuántos destinatarios son: solo cuentas activas, no
+   bloqueadas, que aceptan publicidad y que no son de prueba.
+3. **Vista previa** (en un iframe sin scripts) y **envío de prueba**.
+4. **Programar** para una fecha y hora, o **Enviar ahora**. La tarea
+   "campañas" (cada minuto) lanza las vencidas una sola vez y el envío corre
+   como proceso en segundo plano.
+5. **Métricas**: enviados, abiertos y tasa de apertura (pixel), con click y
+   tasa (el link siempre redirige al botón de la campaña, nunca a una URL
+   del pedido), clicks, bajas, fallidos.
+
+Cada mail lleva su link de **baja de publicidad** (`/baja-publicidad/:token`,
+con confirmación) y el encabezado `List-Unsubscribe`. La baja pone
+`users.acepta_publicidad = false`; los mails de servicio (compras, turnos,
+tickets) siguen llegando. Cada usuario puede volver a suscribirse desde su
+perfil. Duplicar, editar (hasta que se manda), cancelar la programación y
+borrar.
+
+### Ofertas en la app (`/admin-panel/ofertas`)
+
+- **Formato:** barra arriba de todo, banner arriba del contenido o pop-up
+  (una vez por sesión). Título, mensaje, imagen, colores, botón, prioridad.
+- **Cuenta regresiva** hasta el fin de la oferta, corregida con la hora del
+  servidor; al terminar, la oferta desaparece sola.
+- **Público:** todos, visitantes sin cuenta, alumnos o profesores (admin y
+  soporte no las ven).
+- **Descuento real:** asociada a un curso con un %, la tienda, el detalle del
+  curso, el carrito, la compra directa y el checkout (simulado o con
+  pasarela) cobran el precio con descuento mientras la oferta esté vigente,
+  calculado siempre en el servidor (`ofertas.service.js::aplicarPrecios`).
+  La tienda muestra el precio original tachado y el porcentaje.
+- **Estadísticas:** vistas, clicks (con tasa) y cierres.
+
 ## Frontend — páginas
 
 Públicas: Home, Contacto, Tienda de cursos, Detalle de curso, Carrito,
@@ -1165,6 +1505,15 @@ Sandbox de orquestación de agentes (`/agentes`, alumno y
 profesor). Logros (`/logros`), Integraciones IA (`/integraciones-ia`,
 ver "Integraciones IA" más arriba) y GPTs (`/gpts`, ver "GPTs" más
 arriba) son privadas y exclusivas de alumnos.
+Alumno y profesor también tienen: Alertas (`/alertas`, con "Marcar como
+recibido"), Mis consultas (`/mis-consultas`, tickets), Reportar error
+(`/reportar-error`), Novedades (`/novedades`) y Manual de uso (`/manual`);
+los alumnos además Encuestas (`/encuestas`). En Perfil se elige si recibir
+publicidad por mail.
+Públicas sin login: Aprobación de un pedido de soporte
+(`/aprobacion/:token`) y Baja de publicidad (`/baja-publicidad/:token`).
+En todas las páginas del sitio se muestran las ofertas activas (barra,
+banner o pop-up) y, si el admin lo habilitó, el botón de modo oscuro.
 `/lti/entrando` es pública pero no
 navegable a mano — es la página de aterrizaje de un launch de LTI (ver
 "Integración LMS real" más arriba), que cambia el código de un solo uso
@@ -1195,7 +1544,18 @@ más arriba para el detalle completo.
 ## Panel de administración (`/admin-panel`)
 
 Área separada del sitio público, con su propio login (`/admin-panel/ingresar`)
-y layout (sidebar), protegida por rol `admin`:
+y layout (sidebar fija con su propio scroll, menú configurable por
+secciones — ver "Herramientas del panel"), protegida por rol `admin`.
+
+Pantallas agregadas con el backoffice ampliado (detalle en "Backoffice
+ampliado" y "Marketing"): Reportes, Asistente IA, Calificaciones internas,
+Encuestas, Campañas de mail, Ofertas en la app, Tickets, Configuración,
+Estado de la app, Tráfico, Procesos, Pantallas, Tester, Versiones, Manual,
+Menú del panel y Backups y actualizaciones. Usuarios, Bloqueados, Alertas,
+Sesiones (con la pestaña "Intentos de ingreso"), APIs (con "Bloqueos" y
+"Mensajes de error") y Errores (con sus 4 pestañas) se ampliaron.
+
+Las pantallas originales:
 
 - **Dashboard** (`/admin-panel`): cursos vendidos, alumnos, cursos
   completados, tareas revisadas, y una tabla de profesores con cursos que
@@ -1503,6 +1863,21 @@ cd "C:\Users\Dba24\Desktop\escuela-app\backend"
 npm test
 ```
 
+32 archivos, 406 tests. Los del backoffice ampliado:
+
+| Archivo | Qué prueba |
+|---|---|
+| `seguridadCuentas.test.js` | activo/inactivo, bloqueo manual, los 3 tramos de fuerza bruta, que el tramo 3 bloquea solo la IP, IPs bloqueadas |
+| `alertas.test.js` | alta, pop-up una sola vez, historial, aislamiento entre usuarios, "recibido" |
+| `apiSeguridad.test.js` | bloqueos por IP/usuario de API, fuerza bruta de la API, mensajes de error editables, catálogo sin tablas internas |
+| `errores.test.js` | huella de agrupación, errores del navegador, borrado, mails fallidos, reportes con capturas privadas y estados |
+| `tickets.test.js` | alta con adjunto, aislamiento, tablero, asignación, etiquetas, notas internas, mails, aprobación por link (una vez, vencida) |
+| `operacion.test.js` | mantenimiento por rol, feriados, estado de la app, test de velocidad, PDFs, tráfico, versiones, procesos, tareas programadas, listas blancas, backup de SQLite |
+| `jobs.test.js` | carrito abandonado e inactividad con fechas reales de SQLite |
+| `panelAdmin.test.js` | menú, pantallas en reparación y bloqueadas, feriados en turnos, tester, manual, logo de mails |
+| `reportesYAsistente.test.js` | reportes, PDF y reenvío por mail con tope, encuestas, calificaciones, asistente IA con un cliente simulado (nunca llama a Anthropic) |
+| `marketing.test.js` | ofertas (validación, audiencias, descuento real en tienda y carrito, vencimiento, estadísticas) y campañas (segmento, programación, envío, apertura, click, baja) |
+
 Cubre el flujo de registro/login (incluyendo la validación de cuenta por
 código de 6 dígitos), creación de curso → inscripción (compra simulada) →
 logro otorgado automáticamente, el carrito de compras (agregar/quitar
@@ -1645,6 +2020,18 @@ terminal, en `/admin-panel/testing` (ver sección de Panel de administración
 más arriba) — mismo resultado, más cómodo para un chequeo rápido.
 
 ## Decisiones y próximos pasos pendientes
+
+- **Tickets por mail entrante y WhatsApp:** hoy los tickets entran solo
+  desde el portal. Conectarlos a un buzón (IMAP) o a WhatsApp como en DBA24
+  necesita cuentas externas.
+- **Asistente IA:** necesita `ANTHROPIC_API_KEY`. Sus herramientas son de
+  solo lectura a propósito; acciones (crear, editar) quedan para el panel.
+- **Modo oscuro** por inversión de colores: rápido y sin tocar cada vista,
+  pero las imágenes se re-invierten de forma aproximada si la intensidad es
+  menor a 100%.
+- **Fechas en SQLite:** las columnas con `CURRENT_TIMESTAMP` guardan texto en
+  UTC. Todo filtro por fecha nuevo usa `utils/sqlFecha.js` (`paraSql`,
+  `haceDias`, `aDate`) para comparar texto con texto y devolver ISO con zona.
 
 - **Pagos reales:** ya conectados (Mercado Pago Checkout Pro + PayPal
   Orders v2 — ver "Pagos reales" más arriba), quedan activos completando
